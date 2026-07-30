@@ -1,0 +1,46 @@
+[gd_scene format=3 uid="uid://2iwfcjuhdpno"]
+
+[ext_resource type="Script" uid="uid://bdshpwk6udk1n" path="res://island_map.gd" id="1_island"]
+[ext_resource type="PackedScene" uid="uid://bris3ny63vtoh" path="res://player.tscn" id="2_player"]
+[ext_resource type="Script" uid="uid://c0k3pc17pg1x6" path="res://minimap.gd" id="3_minimap"]
+[ext_resource type="Script" uid="uid://blm7tfra5ejud" path="res://player_shadow.gd" id="4_shadow"]
+[ext_resource type="Script" uid="uid://pkr81j2ropl5" path="res://coast_effects.gd" id="5_coast_effects"]
+
+[node name="IslandMap" type="Node2D" unique_id=1407515294]
+script = ExtResource("1_island")
+map_width = 50
+map_height = 50
+world_seed = 24356
+dock_length = 3
+bridge_planks_per_tile = 2
+
+[node name="TerrainCollision" type="StaticBody2D" parent="." unique_id=149007699]
+
+[node name="CoastEffects" type="Node2D" parent="." unique_id=489540484]
+z_index = 2
+script = ExtResource("5_coast_effects")
+
+[node name="PlayerShadow" type="Node2D" parent="." unique_id=1035890114]
+z_index = 5
+script = ExtResource("4_shadow")
+player_path = NodePath("../Player")
+
+[node name="Player" parent="." unique_id=1290965009 instance=ExtResource("2_player")]
+
+[node name="HUD" type="CanvasLayer" parent="." unique_id=24544657]
+layer = 20
+
+[node name="Minimap" type="Control" parent="HUD" unique_id=950635016]
+layout_mode = 3
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -144.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = 144.0
+grow_horizontal = 0
+mouse_filter = 2
+script = ExtResource("3_minimap")
+map_path = NodePath("../..")
+player_path = NodePath("../../Player")

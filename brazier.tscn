@@ -1,0 +1,73 @@
+[gd_scene format=3 uid="uid://dy5dghhjeix4g"]
+
+[ext_resource type="Texture2D" uid="uid://dbt76hub4a2b1" path="res://art/brazier.svg" id="1_brazier"]
+
+[sub_resource type="Gradient" id="Gradient_outer_initial"]
+offsets = PackedFloat32Array(0, 0.45, 1)
+colors = PackedColorArray(0.92, 0.08, 0.03, 0.58, 1, 0.2, 0.03, 0.68, 1, 0.4, 0.04, 0.52)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_outer_initial"]
+gradient = SubResource("Gradient_outer_initial")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_outer"]
+emission_shape = 3
+emission_box_extents = Vector3(18, 2, 1)
+direction = Vector3(0, -1, 0)
+spread = 22.0
+initial_velocity_min = 24.0
+initial_velocity_max = 44.0
+gravity = Vector3(0, -18, 0)
+scale_min = 4.0
+scale_max = 7.0
+color_initial_ramp = SubResource("GradientTexture1D_outer_initial")
+
+[sub_resource type="Gradient" id="Gradient_inner_initial"]
+offsets = PackedFloat32Array(0, 0.55, 1)
+colors = PackedColorArray(1, 0.28, 0.03, 0.6, 1, 0.48, 0.05, 0.76, 1, 0.68, 0.12, 0.58)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_inner_initial"]
+gradient = SubResource("Gradient_inner_initial")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_inner"]
+emission_shape = 3
+emission_box_extents = Vector3(6, 1, 1)
+direction = Vector3(0, -1, 0)
+spread = 14.0
+initial_velocity_min = 20.0
+initial_velocity_max = 37.0
+gravity = Vector3(0, -24, 0)
+scale_min = 6.0
+scale_max = 10.0
+color_initial_ramp = SubResource("GradientTexture1D_inner_initial")
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_brazier"]
+size = Vector2(53, 49)
+
+[node name="Brazier" type="StaticBody2D" unique_id=1789825417]
+z_index = 6
+
+[node name="OuterFlameEmitter" type="GPUParticles2D" parent="." unique_id=108543270]
+z_index = 5
+position = Vector2(0, -11)
+amount = 30
+lifetime = 0.85
+randomness = 0.42
+visibility_rect = Rect2(-40, -80, 80, 100)
+process_material = SubResource("ParticleProcessMaterial_outer")
+
+[node name="InnerFlameEmitter" type="GPUParticles2D" parent="." unique_id=1406411873]
+z_index = 5
+position = Vector2(0, -10)
+amount = 22
+lifetime = 0.64
+randomness = 0.36
+visibility_rect = Rect2(-32, -70, 64, 88)
+process_material = SubResource("ParticleProcessMaterial_inner")
+
+[node name="Visual" type="Sprite2D" parent="." unique_id=11845316]
+texture_filter = 1
+texture = ExtResource("1_brazier")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=16287454]
+position = Vector2(0, 1)
+shape = SubResource("RectangleShape2D_brazier")
