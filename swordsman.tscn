@@ -1,0 +1,39 @@
+[gd_scene format=3 uid="uid://c8ltwf32xic73"]
+
+[ext_resource type="Script" uid="uid://dhptff3ekq51t" path="res://swordsman.gd" id="1_swordsman"]
+[ext_resource type="Texture2D" uid="uid://dw2qyethsgxwi" path="res://art/swordsman.svg" id="2_yb8h7"]
+[ext_resource type="Script" uid="uid://ddn6mml370hkd" path="res://sword_weapon.gd" id="3_sword"]
+[ext_resource type="Script" uid="uid://dl18fi0l70cuk" path="res://sword_slash_effect.gd" id="4_slash"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_swordsman"]
+size = Vector2(46, 45)
+
+[node name="Swordsman" type="CharacterBody2D" unique_id=148638142]
+z_index = 8
+collision_layer = 8
+collision_mask = 11
+script = ExtResource("1_swordsman")
+
+[node name="ContactShadow" type="Polygon2D" parent="." unique_id=413259850]
+z_index = -1
+position = Vector2(0, 21)
+color = Color(0, 0, 0, 0.24)
+polygon = PackedVector2Array(-28, -6, 28, -6, 28, 6, -28, 6)
+
+[node name="Visual" type="Sprite2D" parent="." unique_id=2145416842]
+texture_filter = 1
+scale = Vector2(0.527, 0.527)
+texture = ExtResource("2_yb8h7")
+
+[node name="SwordWeapon" type="Node2D" parent="." unique_id=387102596]
+z_index = 3
+script = ExtResource("3_sword")
+
+[node name="SwordSlashEffect" type="Node2D" parent="." unique_id=1272134927]
+visible = false
+z_index = 4
+script = ExtResource("4_slash")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=2037829411]
+position = Vector2(1, 1.5)
+shape = SubResource("RectangleShape2D_swordsman")

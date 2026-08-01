@@ -1,0 +1,87 @@
+[gd_scene format=3 uid="uid://bkd5gf0tnjwi8"]
+
+[ext_resource type="Script" path="res://weapon_preview.gd" id="1_preview"]
+[ext_resource type="Script" uid="uid://ccjnqdkvo631l" path="res://rock_weapon.gd" id="2_rock"]
+[ext_resource type="Script" uid="uid://didmvsyvl2lmm" path="res://bow_weapon.gd" id="3_bow"]
+[ext_resource type="Script" uid="uid://b5ksdvumc8fjg" path="res://triple_bow_weapon.gd" id="4_triple"]
+[ext_resource type="Script" uid="uid://ddn6mml370hkd" path="res://sword_weapon.gd" id="5_sword"]
+
+[node name="WeaponPreview" type="Node2D" unique_id=1655435497]
+script = ExtResource("1_preview")
+
+[node name="RockAnchor" type="Node2D" parent="." unique_id=1388936725]
+position = Vector2(175, 86)
+
+[node name="RockWeapon" type="Node2D" parent="RockAnchor" unique_id=1266584175]
+position = Vector2(44, 0)
+script = ExtResource("2_rock")
+
+[node name="StandardAnchor" type="Node2D" parent="." unique_id=97513384]
+position = Vector2(175, 208)
+
+[node name="StandardBow" type="Node2D" parent="StandardAnchor" unique_id=586730358]
+position = Vector2(54, 0)
+script = ExtResource("3_bow")
+border_color = Color(0.101961, 0.392157, 0.709804, 1)
+
+[node name="TripleAnchor" type="Node2D" parent="." unique_id=1419533186]
+position = Vector2(175, 330)
+scale = Vector2(1.0011573, 1)
+
+[node name="TripleBow" type="Node2D" parent="TripleAnchor" unique_id=496449797]
+position = Vector2(54, 0)
+script = ExtResource("4_triple")
+border_color = Color(0.101961, 0.392157, 0.709804, 1)
+
+[node name="SwordAnchor" type="Node2D" parent="." unique_id=527250138]
+position = Vector2(175, 452)
+
+[node name="SwordWeapon" type="Node2D" parent="SwordAnchor" unique_id=685990562]
+position = Vector2(56, 0)
+script = ExtResource("5_sword")
+outline_color = Color(0.101961, 0.392157, 0.709804, 1)
+
+[node name="RockLabel" type="Label" parent="." unique_id=804560475]
+offset_left = 32.0
+offset_top = 62.0
+offset_right = 150.0
+offset_bottom = 87.0
+theme_override_colors/font_color = Color(0.8, 0.88, 0.95, 1)
+theme_override_font_sizes/font_size = 16
+text = "石头"
+
+[node name="BowLabel" type="Label" parent="." unique_id=389742655]
+offset_left = 32.0
+offset_top = 184.0
+offset_right = 150.0
+offset_bottom = 209.0
+theme_override_colors/font_color = Color(0.8, 0.88, 0.95, 1)
+theme_override_font_sizes/font_size = 16
+text = "普通弓"
+
+[node name="TripleLabel" type="Label" parent="." unique_id=299931548]
+offset_left = 32.0
+offset_top = 306.0
+offset_right = 150.0
+offset_bottom = 331.0
+theme_override_colors/font_color = Color(0.8, 0.88, 0.95, 1)
+theme_override_font_sizes/font_size = 16
+text = "三连弓"
+
+[node name="SwordLabel" type="Label" parent="." unique_id=1942268126]
+offset_left = 32.0
+offset_top = 428.0
+offset_right = 150.0
+offset_bottom = 453.0
+theme_override_colors/font_color = Color(0.8, 0.88, 0.95, 1)
+theme_override_font_sizes/font_size = 16
+text = "剑"
+
+[node name="Hint" type="Label" parent="." unique_id=1385499808]
+offset_left = 32.0
+offset_top = 520.0
+offset_right = 690.0
+offset_bottom = 545.0
+theme_override_colors/font_color = Color(0.55, 0.66, 0.75, 1)
+theme_override_font_sizes/font_size = 14
+text = "选中根节点，可在检查器切换预览对象和朝向；保存武器脚本后画布会刷新。"

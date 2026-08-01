@@ -11,9 +11,9 @@ config_version=5
 [application]
 
 config/name="squares"
+run/main_scene="res://main.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
 config/icon="res://icon.svg"
-run/main_scene="res://main.tscn"
 
 [display]
 
@@ -21,9 +21,15 @@ window/size/viewport_width=960
 window/size/viewport_height=640
 window/size/window_width_override=960
 window/size/window_height_override=640
-
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+
+[layer_names]
+
+2d_physics/layer_1="Terrain"
+2d_physics/layer_2="Obstacles"
+2d_physics/layer_3="Player"
+2d_physics/layer_4="Enemies"
 
 [physics]
 
@@ -32,6 +38,5 @@ window/stretch/aspect="expand"
 [rendering]
 
 rendering_device/driver.windows="d3d12"
-anti_aliasing/quality/msaa_2d=0
 2d/snap/snap_2d_transforms_to_pixel=true
 2d/snap/snap_2d_vertices_to_pixel=true

@@ -1,6 +1,13 @@
 [gd_scene format=3 uid="uid://blacr7y1qinhl"]
 
 [ext_resource type="Script" uid="uid://os3m0j0d0h0k" path="res://player.gd" id="1_player"]
+[ext_resource type="Script" path="res://bow_weapon.gd" id="2_bow"]
+[ext_resource type="Script" path="res://triple_bow_weapon.gd" id="8_triple_bow"]
+[ext_resource type="Script" path="res://bow_fire_flash.gd" id="3_bow_flash"]
+[ext_resource type="Script" path="res://rock_weapon.gd" id="4_rock_weapon"]
+[ext_resource type="Script" path="res://sword_weapon.gd" id="5_sword"]
+[ext_resource type="Script" path="res://sword_slash_effect.gd" id="6_sword_slash"]
+[ext_resource type="Script" path="res://bow_charge_effect.gd" id="7_bow_charge"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_player"]
 size = Vector2(48, 48)
@@ -29,6 +36,8 @@ color_ramp = SubResource("GradientTexture1D_landing_fade")
 
 [node name="Player" type="CharacterBody2D" unique_id=1022082260]
 z_index = 10
+collision_layer = 4
+collision_mask = 3
 script = ExtResource("1_player")
 move_speed = 250.0
 
@@ -55,6 +64,94 @@ polygon = PackedVector2Array(-30, -18, 30, -18, 30, 30, -30, 30)
 
 [node name="SpawnTransform" type="Node2D" parent="Visual" unique_id=225153867]
 
+[node name="RockWeapon" type="Node2D" parent="."]
+z_index = 4
+visible = false
+script = ExtResource("4_rock_weapon")
+
+[node name="BowWeapon" type="Node2D" parent="."]
+z_index = 4
+visible = false
+script = ExtResource("2_bow")
+border_color = Color(0.101961, 0.392157, 0.709804, 1)
+[node name="TripleBowWeapon" type="Node2D" parent="."]
+z_index = 4
+visible = false
+script = ExtResource("8_triple_bow")
+border_color = Color(0.101961, 0.392157, 0.709804, 1)
+[node name="BowFireFlash" type="Node2D" parent="."]
+z_index = 5
+visible = false
+script = ExtResource("3_bow_flash")
+
+[node name="BowChargeEffect" type="Node2D" parent="."]
+z_index = 5
+visible = false
+script = ExtResource("7_bow_charge")
+
+[node name="SwordWeapon" type="Node2D" parent="."]
+z_index = 4
+visible = false
+script = ExtResource("5_sword")
+outline_color = Color(0.101961, 0.392157, 0.709804, 1)
+
+[node name="SwordSlashEffect" type="Node2D" parent="."]
+z_index = 5
+visible = false
+script = ExtResource("6_sword_slash")
+faction_color = Color(0.101961, 0.392157, 0.709804, 1)
+
+[node name="AbilityArrowPreview" type="Node2D" parent="."]
+z_index = 4
+visible = false
+
+[node name="Border" type="Polygon2D" parent="AbilityArrowPreview"]
+color = Color(0.101961, 0.392157, 0.709804, 1)
+polygon = PackedVector2Array(0, -4, 32, -4, 32, 4, 0, 4)
+
+[node name="Fill" type="Polygon2D" parent="AbilityArrowPreview"]
+position = Vector2(2, 0)
+color = Color(1, 1, 1, 1)
+polygon = PackedVector2Array(0, -2, 28, -2, 28, 2, 0, 2)
+
+[node name="TripleArrowPreview" type="Node2D" parent="."]
+z_index = 4
+visible = false
+
+[node name="UpperArrow" type="Node2D" parent="TripleArrowPreview"]
+position = Vector2(45.825, -4.009)
+rotation = -0.087266
+
+[node name="Border" type="Polygon2D" parent="TripleArrowPreview/UpperArrow"]
+color = Color(0.101961, 0.392157, 0.709804, 1)
+polygon = PackedVector2Array(0, -4, 32, -4, 32, 4, 0, 4)
+
+[node name="Fill" type="Polygon2D" parent="TripleArrowPreview/UpperArrow"]
+position = Vector2(2, 0)
+polygon = PackedVector2Array(0, -2, 28, -2, 28, 2, 0, 2)
+
+[node name="CenterArrow" type="Node2D" parent="TripleArrowPreview"]
+position = Vector2(46, 0)
+
+[node name="Border" type="Polygon2D" parent="TripleArrowPreview/CenterArrow"]
+color = Color(0.101961, 0.392157, 0.709804, 1)
+polygon = PackedVector2Array(0, -4, 32, -4, 32, 4, 0, 4)
+
+[node name="Fill" type="Polygon2D" parent="TripleArrowPreview/CenterArrow"]
+position = Vector2(2, 0)
+polygon = PackedVector2Array(0, -2, 28, -2, 28, 2, 0, 2)
+
+[node name="LowerArrow" type="Node2D" parent="TripleArrowPreview"]
+position = Vector2(45.825, 4.009)
+rotation = 0.087266
+
+[node name="Border" type="Polygon2D" parent="TripleArrowPreview/LowerArrow"]
+color = Color(0.101961, 0.392157, 0.709804, 1)
+polygon = PackedVector2Array(0, -4, 32, -4, 32, 4, 0, 4)
+
+[node name="Fill" type="Polygon2D" parent="TripleArrowPreview/LowerArrow"]
+position = Vector2(2, 0)
+polygon = PackedVector2Array(0, -2, 28, -2, 28, 2, 0, 2)
 [node name="LandingParticles" type="GPUParticles2D" parent="." unique_id=64130809]
 z_index = 2
 position = Vector2(0, 30)
@@ -70,3 +167,4 @@ process_material = SubResource("ParticleProcessMaterial_landing")
 [node name="Camera2D" type="Camera2D" parent="." unique_id=1854522131]
 position_smoothing_enabled = true
 position_smoothing_speed = 7.0
+zoom = Vector2(0.8, 0.8)

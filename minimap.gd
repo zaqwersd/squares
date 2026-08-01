@@ -1,4 +1,4 @@
-﻿class_name IslandMinimap
+class_name IslandMinimap
 extends Control
 
 const MINIMAP_SIZE := 128
@@ -11,8 +11,9 @@ const BORDER_WIDTH := 2
 const OCEAN_COLOR := Color("#42CAFD")
 const DEEP_OCEAN_COLOR := Color("#247EAE")
 const GRASS_COLOR := Color("#7BE0AD")
-const PLAYER_COLOR := Color("#154C8BFF")
-const BRIDGE_COLOR := Color("#5A4233")
+const ROCK_COLOR := Color("#C2C2C2")
+const PLAYER_COLOR := Color("#1a64b5ff")
+const BRIDGE_COLOR := Color("#806A58")
 const BRAZIER_COLOR := Color("#FF6B35")
 const BRAZIER_MARKER_SIZE := 4
 const BORDER_COLOR := Color.BLACK
@@ -52,9 +53,12 @@ func _draw() -> void:
 			var cell := Vector2i(x, y)
 			var grass: bool = island_map.call("is_grass", cell)
 			var bridge: bool = island_map.call("is_bridge", cell)
+			var rock: bool = island_map.call("is_rock", cell)
 			var tile_color: Color = island_map.call("get_ocean_color", cell)
 			if bridge:
 				tile_color = BRIDGE_COLOR
+			elif rock:
+				tile_color = ROCK_COLOR
 			elif grass:
 				tile_color = GRASS_COLOR
 
@@ -106,4 +110,3 @@ func _draw() -> void:
 		Rect2(MINIMAP_SIZE - BORDER_WIDTH, 0, BORDER_WIDTH, MINIMAP_SIZE),
 		BORDER_COLOR
 	)
-

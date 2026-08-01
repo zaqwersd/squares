@@ -8,9 +8,9 @@ const COAST_COLOR := Color.WHITE
 const CLIFF_COLOR := Color("#61A289")
 const LAND_COLOR := Color("#7BE0AD")
 const FOAM_COLOR := Color(1.0, 1.0, 1.0, 0.82)
-const BRIDGE_POST_TOP_COLOR := Color("#7B5640")
-const BRIDGE_SIDE_COLOR := Color("#43291F")
-const BRIDGE_TOP_COLOR := Color("#5A4233")
+const BRIDGE_POST_TOP_COLOR := Color("#9C765E")
+const BRIDGE_SIDE_COLOR := Color("#604A3D")
+const BRIDGE_TOP_COLOR := Color("#806A58")
 
 @export_range(4.0, 20.0, 1.0) var animation_fps := 10.0
 @export_range(0.2, 3.0, 0.1) var coast_pulse_speed := 0.9
