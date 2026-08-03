@@ -1,15 +1,28 @@
-class_name IslandMap
+﻿class_name IslandMap
 extends Node2D
 
 const TILE_SIZE := 64
+const CHUNK_SIZE_TILES := 16
 const COASTAL_OCEAN_COLOR := Color("#7DDEFA")
 const OCEAN_COLOR := Color("#42CAFD")
 const MID_OCEAN_COLOR := Color("#2B9FCB")
 const DEEP_OCEAN_COLOR := Color("#247EAE")
 const GRASS_COLOR := Color("#7BE0AD")
+const DESERT_COLOR := Color("#FBF2C0")
+const DESERT_SIDE_COLOR := Color("#CEC69F")
+const SAVANNA_COLOR := Color("#B7D887")
+const SAVANNA_SIDE_COLOR := Color("#91AD6D")
 const ROCK_TOP_COLOR := Color("#C2C2C2")
 const ROCK_SIDE_COLOR := Color("#9F9F9F")
 const SHADOW_COLOR := Color("#61A289")
+const ARENA_TILE_COLOR := Color("#D7D8D2")
+const ARENA_SIDE_COLOR := Color("#9F9F9F")
+const ARENA_BRICK_COLOR := Color("#C1C4BB")
+const RUNE_STONE_COLOR := Color("#D7D8D2")
+const RUNE_LINE_COLOR := Color("#A5AAA0")
+const RUNE_INNER_COLOR := Color("#BEC3B8")
+const MOSS_COLOR := Color("#6E9D62")
+const VINE_COLOR := Color("#568452")
 const COAST_COLOR := Color.WHITE
 const BRIDGE_TOP_COLOR := Color("#806A58")
 const BRIDGE_POST_TOP_COLOR := Color("#9C765E")
@@ -20,16 +33,29 @@ const BRIDGE_POST_SIZE := 8.0
 const BRIDGE_POST_HEIGHT := 48.0
 const BRAZIER_SCENE := preload("res://brazier.tscn")
 const ARCHER_SCENE := preload("res://archer.tscn")
+const SPEAR_THROWER_SCENE := preload("res://spear_thrower.tscn")
 const SHARPSHOOTER_SCENE := preload("res://sharpshooter.tscn")
 const SWORDSMAN_SCENE := preload("res://swordsman.tscn")
 const SLIME_SCENE := preload("res://slime.tscn")
+const SWORDMASTER_SCENE := preload("res://swordmaster.tscn")
 const EXPERIENCE_PICKUP_SCENE := preload("res://experience_pickup.tscn")
 const HEALTH_PICKUP_SCENE := preload("res://health_pickup.tscn")
+const SLIME_KING_SCENE := preload("res://slime_king.tscn")
+const ARENA_SEAL_SCRIPT := preload("res://arena_seal.gd")
+const WEAPON_PICKUP_SCENE := preload("res://weapon_pickup.tscn")
+const TREASURE_CHEST_SCENE := preload("res://treasure_chest.tscn")
+const WATER_FALL_EFFECT := preload("res://water_fall_effect.gd")
+const WATER_FALL_DURATION := 2.0
 
 const BRIDGE_NONE := 0
 const BRIDGE_HORIZONTAL := 1
 const BRIDGE_VERTICAL := 2
 const CARDINAL_DIRECTIONS := [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]
+const EIGHT_DIRECTIONS: Array[Vector2i] = [
+	Vector2i(-1, -1), Vector2i.UP, Vector2i(1, -1),
+	Vector2i.LEFT, Vector2i.RIGHT,
+	Vector2i(-1, 1), Vector2i.DOWN, Vector2i(1, 1),
+]
 
 @export_group("Map")
 @export_range(5, 512, 1, "or_greater") var map_width := 20
@@ -42,9 +68,18 @@ const CARDINAL_DIRECTIONS := [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector
 @export_range(1, 8, 1) var coast_noise_octaves := 4
 @export_range(0.0, 0.5, 0.01) var coast_irregularity := 0.28
 
+@export_group("Desert Biome")
+@export_range(2, 80, 1) var desert_transition_width := 48
+@export_range(0.0, 16.0, 0.5) var desert_boundary_variation := 4.0
 @export_group("Dock")
 @export_range(1, 15, 1) var dock_width := 3
 @export_range(2, 30, 1) var dock_length := 6
+
+@export_group("External Arena")
+@export var external_arena_enabled := true
+@export_range(1, 5, 1) var external_bridge_width := 3
+@export_range(6, 32, 1) var external_bridge_length := 20
+@export_range(7, 15, 2) var external_arena_size := 11
 
 @export_group("Deep Ocean")
 @export_range(5, 20, 1) var deep_ocean_min_land_distance := 5
@@ -62,47 +97,72 @@ const CARDINAL_DIRECTIONS := [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector
 @export_range(0, 32, 1) var rock_cluster_count := 7
 @export_range(1, 4, 1) var rock_coast_clearance_tiles := 2
 
+@export_group("Chunk Streaming")
+@export_range(0, 4, 1) var active_chunk_radius := 1 # Center chunk plus its eight neighbors.
+
 @export_group("Rendering")
 @export_range(16, 128, 1) var infinite_render_distance_tiles := 40
 @export_range(1, 12, 1) var coast_width := 5
 
 @export_group("Enemies")
 @export_range(0, 64, 1) var max_archers := 2
+@export_range(0, 8, 1) var max_spear_throwers := 2
+@export_range(0.0, 1.0, 0.01) var fire_spear_thrower_spawn_chance := 0.10
+@export_range(0, 99, 1) var fire_spear_thrower_unlock_kills := 3
 @export_range(0, 64, 1) var max_total_enemies := 10
 @export_range(0.1, 5.0, 0.1) var enemy_spawn_min_interval := 0.5
 @export_range(0.5, 20.0, 0.1) var enemy_spawn_near_capacity_interval := 3.0
 @export_range(0.0, 1.0, 0.01) var health_drop_chance := 0.2
-@export_range(2, 8, 1) var archer_shoot_min_distance_tiles := 3
-@export_range(3, 12, 1) var archer_shoot_max_distance_tiles := 7
+@export_range(2.0, 8.0, 0.5) var archer_shoot_min_distance_tiles := 3.5
+@export_range(3.0, 12.0, 0.5) var archer_shoot_max_distance_tiles := 4.5
 @export_range(0, 64, 1) var max_swordsmen := 3
 @export_range(0, 64, 1) var max_slimes := 5
-@export_range(8, 64, 1) var navigation_field_radius_tiles := 28
-@export_range(0.05, 1.0, 0.01) var potential_rebuild_interval := 0.12
+@export_range(8, 64, 1) var navigation_field_radius_tiles := 20
+@export_range(0.05, 1.0, 0.01) var potential_rebuild_interval := 0.25
 @export_range(1.0, 30.0, 0.5) var offscreen_enemy_despawn_delay := 7.0
-@export_range(0.0, 1.0, 0.01) var sharpshooter_base_spawn_chance := 0.05
-@export_range(0.0, 1.0, 0.01) var sharpshooter_miss_bonus := 0.05
+@export_range(0.0, 1.0, 0.01) var sharpshooter_base_spawn_chance := 0.10
+@export_range(0.0, 1.0, 0.01) var sharpshooter_miss_bonus := 0.10
+@export_range(0, 99, 1) var advanced_enemy_unlock_kills := 6
+@export_range(0, 99, 1) var sharpshooter_unlock_archer_kills := 4
+@export var spawn_debug_killer_spear := true
 
 var _tiles: Array[PackedByteArray] = []
+var _desert_tiles: Array[PackedByteArray] = []
+var _savanna_tiles: Array[PackedByteArray] = []
 # Sparse global overrides make the world logically unbounded; absent cells are deep ocean.
 var _world_tile_overrides: Dictionary = {} # Vector2i -> 0 ocean, 1 grass
 var _world_bridge_overrides: Dictionary = {} # Vector2i -> bridge orientation
 var _world_rock_overrides: Dictionary = {} # Vector2i -> true
 var _arena_tiles: Dictionary = {} # Vector2i -> true
+var _arena_center := Vector2i(-1, -1)
+var _arena_bounds := Rect2i() # Generated arena footprint; never recompute it from live inspector values.
 var _external_island_cells: Dictionary = {} # Vector2i -> true
 var _external_bridge_rect := Rect2i()
+var _external_ocean_depth: Dictionary = {} # Vector2i -> normalized depth
+var _external_land_depth_sources: Array[Vector2i] = []
+var _external_mainland_landing := Vector2i(-1, -1)
 var _bridge_tiles: Array[PackedByteArray] = []
 var _rock_tiles: Array[PackedByteArray] = []
 var _deep_ocean_tiles: Array[PackedByteArray] = []
 var _ocean_depth: Array[PackedFloat32Array] = []
 var _ocean_mesh: ArrayMesh
+var _active_chunk := Vector2i(2147483647, 2147483647)
+var _active_tile_bounds := Rect2i()
+var _terrain_collision_pool: Array[CollisionShape2D] = []
+var _terrain_block_rects: Array[Rect2] = []
 var _dock_cells := Rect2i()
 var _dock_spawn_cell := Vector2i(-1, -1)
 var _braziers: Array[Node2D] = []
 var _brazier_cells: Array[Vector2i] = []
 var _archers: Array[Node2D] = []
+var _normal_archer_kills := 0
+var _spear_throwers: Array[Node2D] = []
+var _normal_spear_thrower_kills := 0
 var _swordsmen: Array[Node2D] = []
+var _normal_swordsman_kills := 0
 var _slimes: Array[Node2D] = []
 var _sharpshooters: Array[Node2D] = []
+var _swordmasters: Array[Node2D] = []
 var _enemy_rng := RandomNumberGenerator.new()
 var _experience_rng := RandomNumberGenerator.new()
 var _loot_rng := RandomNumberGenerator.new()
@@ -113,34 +173,53 @@ var _potential_rebuild_elapsed := 0.0
 var _enemy_visibility_elapsed := 0.0
 var _enemy_offscreen_seconds: Dictionary = {}
 var _sharpshooter_miss_count := 0
-var _sharpshooter_unlock_boost_active := false
-var _last_observed_player_level := 1
+var _swordmaster_miss_count := 0
 var _potential_player_cell := Vector2i(-1, -1)
 var _game_over := false
 var _enemy_spawning_started := false
+var _boss_triggered := false
+var _slime_king: CharacterBody2D
+var _arena_seal: Node2D
+var _debug_killer_spear: Node2D
+var _boss_chest: Node2D
+var _water_falling_actor_ids: Dictionary = {}
 
 @onready var terrain_collision: StaticBody2D = $TerrainCollision
 @onready var rock_collision: StaticBody2D = $RockCollision
 @onready var player_shadow: Node2D = $PlayerShadow
 @onready var player: IslandPlayer = $Player
 @onready var game_over_panel: GameOverPanel = $HUD/GameOverPanel
+@onready var boss_health_bar: Control = $HUD/BossHealthBar
+@onready var chest_reveal_overlay: Control = $HUD/ChestRevealOverlay
+@onready var boss_reward_panel: Control = $HUD/BossRewardPanel
 
 
 func _ready() -> void:
 	player.died.connect(_on_player_died)
+	boss_reward_panel.connect("reward_selected", _on_boss_reward_selected)
 	generate(world_seed)
 
 
+func _input(event: InputEvent) -> void:
+	if not (event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_P):
+		return
+	if _game_over or boss_reward_panel.visible:
+		return
+	boss_reward_panel.call("show_choices")
+	get_viewport().set_input_as_handled()
 func _process(delta: float) -> void:
 	if _game_over or _tiles.is_empty():
 		return
+	_refresh_active_region()
 	var player_cell := _world_to_cell(player.global_position)
-	if player.level >= 3 and _last_observed_player_level < 3:
-		_sharpshooter_unlock_boost_active = true
-		_sharpshooter_miss_count = 0
-	_last_observed_player_level = player.level
+	if not _boss_triggered and player_cell == _arena_center:
+		_begin_slime_king_encounter()
+
 	_potential_rebuild_elapsed += delta
-	if player_cell != _potential_player_cell and _potential_rebuild_elapsed >= potential_rebuild_interval:
+	if (
+		_potential_rebuild_elapsed >= potential_rebuild_interval
+		and player_cell.distance_squared_to(_potential_player_cell) >= 4
+	):
 		_rebuild_archer_potential_field()
 		_rebuild_experience_potential_field()
 		_potential_rebuild_elapsed = 0.0
@@ -149,9 +228,14 @@ func _process(delta: float) -> void:
 		_cleanup_offscreen_enemies(_enemy_visibility_elapsed)
 		_enemy_visibility_elapsed = 0.0
 	_prune_enemy_list(_archers)
+	_prune_enemy_list(_spear_throwers)
 	_prune_enemy_list(_swordsmen)
 	_prune_enemy_list(_slimes)
 	_prune_enemy_list(_sharpshooters)
+	_prune_enemy_list(_swordmasters)
+	_update_water_fall_hazards()
+	if is_external_combat_area(player_cell):
+		return
 	if not _enemy_spawning_started:
 		if is_bridge(player_cell):
 			return
@@ -164,8 +248,73 @@ func _process(delta: float) -> void:
 	if _enemy_spawn_elapsed >= _get_enemy_spawn_interval():
 		_enemy_spawn_elapsed = 0.0
 		_spawn_weighted_enemy()
+func get_arena_world_center() -> Vector2:
+	return (Vector2(_arena_center) + Vector2.ONE * 0.5) * TILE_SIZE
+
+func _begin_slime_king_encounter() -> void:
+	if _boss_triggered or _arena_bounds.size.x <= 0 or _arena_bounds.size.y <= 0:
+		return
+	_boss_triggered = true
+	var arena_bounds := _arena_bounds
+	var corner_cells: Array[Vector2i] = [
+		arena_bounds.position,
+		Vector2i(arena_bounds.end.x - 1, arena_bounds.position.y),
+		Vector2i(arena_bounds.position.x, arena_bounds.end.y - 1),
+		arena_bounds.end - Vector2i.ONE,
+	]
+	for brazier in _braziers:
+		if is_instance_valid(brazier) and corner_cells.has(_world_to_cell(brazier.global_position)):
+			brazier.call("set_sealed", true)
+	_arena_seal = ARENA_SEAL_SCRIPT.new() as Node2D
+	_arena_seal.call("configure", player, arena_bounds, corner_cells)
+	add_child(_arena_seal)
+	_slime_king = SLIME_KING_SCENE.instantiate() as CharacterBody2D
+	_slime_king.call("configure", player, world_seed ^ 0x5B055)
+	_slime_king.global_position = (Vector2(_arena_center) + Vector2.ONE * 0.5) * TILE_SIZE
+	_slime_king.defeated.connect(_on_slime_king_defeated)
+	add_child(_slime_king)
+	_slime_king.call("summon")
+	boss_health_bar.watch(_slime_king)
+
+func _on_slime_king_defeated() -> void:
+	var drop_position := _slime_king.global_position if is_instance_valid(_slime_king) else (Vector2(_arena_center) + Vector2.ONE * 0.5) * TILE_SIZE
+	call_deferred("_spawn_boss_experience", drop_position)
+	call_deferred("_spawn_slime_king_chest", drop_position)
+	if is_instance_valid(_arena_seal):
+		_arena_seal.queue_free()
+		_arena_seal = null
+	for brazier in _braziers:
+		if is_instance_valid(brazier):
+			brazier.call("set_sealed", false)
+	boss_health_bar.clear_boss()
+func _spawn_slime_king_chest(drop_position: Vector2) -> void:
+	if is_instance_valid(_boss_chest):
+		_boss_chest.queue_free()
+	var chest := TREASURE_CHEST_SCENE.instantiate() as TreasureChest
+	add_child(chest, true)
+	chest.global_position = drop_position
+	chest.opening_started.connect(_on_boss_chest_opening.bind(chest))
+	chest.opening_finished.connect(_on_boss_chest_opened)
+	_boss_chest = chest
+
+
+func _on_boss_chest_opening(chest: Node2D) -> void:
+	if not is_instance_valid(chest):
+		return
+	var screen_position := get_viewport().get_canvas_transform() * chest.global_position
+	chest_reveal_overlay.call("begin_opening", screen_position)
+
+
+func _on_boss_chest_opened() -> void:
+	chest_reveal_overlay.call("begin_panel")
+	boss_reward_panel.call("show_choices")
+
+func _on_boss_reward_selected(reward_id: int) -> void:
+	player.grant_slime_reward(reward_id)
+	chest_reveal_overlay.call("release_panel")
+
 func _active_enemy_count() -> int:
-	return _archers.size() + _swordsmen.size() + _slimes.size()
+	return _archers.size() + _spear_throwers.size() + _swordsmen.size() + _slimes.size()
 
 func _get_enemy_spawn_interval() -> float:
 	if max_total_enemies <= 0:
@@ -178,6 +327,16 @@ func _spawn_weighted_enemy() -> void:
 	_spawn_first_enemy()
 
 func _spawn_first_enemy() -> void:
+	var player_cell := _world_to_cell(player.global_position)
+	if is_desert(player_cell):
+		if _spear_throwers.size() < max_spear_throwers:
+			_try_spawn_spear_thrower()
+		return
+	if is_savanna(player_cell) and _spear_throwers.size() < max_spear_throwers and _enemy_rng.randf() < 0.2:
+		var spear_count_before: int = _spear_throwers.size()
+		_try_spawn_spear_thrower()
+		if _spear_throwers.size() > spear_count_before:
+			return
 	var roll := _enemy_rng.randf()
 	if roll < 0.55 and _slimes.size() < max_slimes:
 		_try_spawn_slime()
@@ -201,7 +360,7 @@ func _cleanup_offscreen_enemies(elapsed: float) -> void:
 		return
 	var visible_size := get_viewport_rect().size / camera.zoom
 	var retention_view := Rect2(player.global_position - visible_size * 0.5, visible_size).grow(TILE_SIZE)
-	for enemy in _archers + _swordsmen + _slimes:
+	for enemy in _archers + _spear_throwers + _swordsmen + _slimes:
 		if not is_instance_valid(enemy) or enemy.is_queued_for_deletion():
 			continue
 		var enemy_id := enemy.get_instance_id()
@@ -218,13 +377,36 @@ func _cleanup_offscreen_enemies(elapsed: float) -> void:
 func generate(seed_value: int) -> void:
 	_game_over = false
 	_enemy_spawning_started = false
+	_boss_triggered = false
+	if is_instance_valid(_slime_king):
+		_slime_king.queue_free()
+	_slime_king = null
+	if is_instance_valid(_arena_seal):
+		_arena_seal.queue_free()
+	_arena_seal = null
+	if is_instance_valid(_boss_chest):
+		_boss_chest.queue_free()
+	_boss_chest = null
+	boss_health_bar.clear_boss()
 	_clear_archers()
+	_clear_spear_throwers()
 	_clear_swordsmen()
 	_clear_slimes()
 	_sharpshooters.clear()
+	_swordmasters.clear()
+	_sharpshooter_miss_count = 0
+	_swordmaster_miss_count = 0
+	if is_instance_valid(_debug_killer_spear):
+		_debug_killer_spear.queue_free()
+	_debug_killer_spear = null
 	_enemy_offscreen_seconds.clear()
+	_normal_spear_thrower_kills = 0
+	_normal_archer_kills = 0
+	_normal_swordsman_kills = 0
 	_clear_arrow_projectiles()
+	_clear_player_allies()
 	world_seed = seed_value
+	boss_reward_panel.call("set_reward_seed", seed_value)
 	_enemy_rng.seed = seed_value ^ 0x5A17E4
 	_experience_rng.seed = seed_value ^ 0x3E9B71
 	_loot_rng.seed = seed_value ^ 0x19C4D2
@@ -233,21 +415,43 @@ func generate(seed_value: int) -> void:
 	_world_tile_overrides.clear()
 	_world_bridge_overrides.clear()
 	_world_rock_overrides.clear()
+	_arena_tiles.clear()
+	_arena_center = Vector2i(-1, -1)
+	_arena_bounds = Rect2i()
+	_external_island_cells.clear()
+	_external_ocean_depth.clear()
+	_external_land_depth_sources.clear()
+	_external_bridge_rect = Rect2i()
+	_external_mainland_landing = Vector2i(-1, -1)
 	_tiles = _create_island(seed_value)
 	_build_south_dock()
+	# The dock pass can fill diagonal mainland corners, so classify biomes afterwards.
+	_build_desert_biome(seed_value)
+	_build_external_combat_island(seed_value)
 	_build_rocks(seed_value)
 	_build_deep_ocean(seed_value)
-	_rebuild_terrain_collision()
+	_ensure_arena_floor()
 	_rebuild_rock_collision()
 	_place_player()
+	_refresh_active_region(true)
 	player.play_spawn_animation()
 	_place_dock_braziers()
+	_spawn_debug_killer_spear()
 	_potential_player_cell = Vector2i(-1, -1)
 	_rebuild_archer_potential_field()
 	_rebuild_experience_potential_field()
 	queue_redraw()
 	player_shadow.queue_redraw()
 
+
+func _spawn_debug_killer_spear() -> void:
+	if not spawn_debug_killer_spear or not is_instance_valid(player):
+		return
+	var spear := WEAPON_PICKUP_SCENE.instantiate() as WeaponPickup
+	spear.configure_weapon(WeaponPickup.WeaponType.KILLER_SPEAR, true)
+	add_child(spear, true)
+	spear.global_position = player.global_position + Vector2(TILE_SIZE * 1.25, 0.0)
+	_debug_killer_spear = spear
 
 func _on_player_died() -> void:
 	if _game_over:
@@ -269,11 +473,36 @@ func is_grass(cell: Vector2i) -> bool:
 	return int(_world_tile_overrides.get(cell, 0)) == 1
 
 
+func is_desert(cell: Vector2i) -> bool:
+	return _is_in_map(cell) and not _desert_tiles.is_empty() and _desert_tiles[cell.y][cell.x] == 1
+
+
+func is_savanna(cell: Vector2i) -> bool:
+	return _is_in_map(cell) and not _savanna_tiles.is_empty() and _savanna_tiles[cell.y][cell.x] == 1 and not is_desert(cell)
+
+
+func get_land_top_color(cell: Vector2i) -> Color:
+	if is_desert(cell):
+		return DESERT_COLOR
+	return SAVANNA_COLOR if is_savanna(cell) else GRASS_COLOR
+
+
+func get_land_side_color(cell: Vector2i) -> Color:
+	if is_desert(cell):
+		return DESERT_SIDE_COLOR
+	return SAVANNA_SIDE_COLOR if is_savanna(cell) else SHADOW_COLOR
+
 func is_bridge(cell: Vector2i) -> bool:
 	if _is_in_map(cell):
 		return not _bridge_tiles.is_empty() and _bridge_tiles[cell.y][cell.x] != BRIDGE_NONE
 	return int(_world_bridge_overrides.get(cell, BRIDGE_NONE)) != BRIDGE_NONE
 
+
+func _set_mainland_grass_biome(cell: Vector2i) -> void:
+	if not _is_in_map(cell):
+		return
+	_desert_tiles[cell.y][cell.x] = 0
+	_savanna_tiles[cell.y][cell.x] = 0
 
 func set_world_grass(cell: Vector2i, enabled: bool) -> void:
 	if _is_in_map(cell):
@@ -306,9 +535,117 @@ func is_rock(cell: Vector2i) -> bool:
 	return (not _rock_tiles.is_empty() and _rock_tiles[cell.y][cell.x] == 1) if _is_in_map(cell) else _world_rock_overrides.has(cell)
 
 
+func is_arena_tile(cell: Vector2i) -> bool:
+	return _arena_tiles.has(cell)
+
+
 func is_walkable(cell: Vector2i) -> bool:
 	return (is_grass(cell) or is_bridge(cell)) and not is_rock(cell)
 
+
+func is_water_hazard_cell(cell: Vector2i) -> bool:
+	return not is_walkable(cell) and not is_rock(cell) and not is_brazier(cell)
+
+
+func actor_jump_direction_blocked(world_position: Vector2, direction: Vector2, distance: float, body: CollisionObject2D) -> bool:
+	if direction.is_zero_approx():
+		return false
+	var steps := maxi(2, ceili(distance / (TILE_SIZE * 0.35)))
+	for step in range(1, steps + 1):
+		var sample_position := world_position + direction.normalized() * distance * float(step) / float(steps)
+		if is_water_hazard_cell(_world_to_cell(sample_position)):
+			return true
+	var query := PhysicsRayQueryParameters2D.create(world_position, world_position + direction.normalized() * distance, 3)
+	query.collide_with_bodies = true
+	query.collide_with_areas = false
+	query.hit_from_inside = false
+	if is_instance_valid(body):
+		query.exclude = [body.get_rid()]
+	return not get_world_2d().direct_space_state.intersect_ray(query).is_empty()
+
+
+func _update_water_fall_hazards() -> void:
+	var actors: Array[Node] = []
+	if is_instance_valid(player):
+		actors.append(player)
+	actors.append_array(get_tree().get_nodes_in_group("player_allies"))
+	actors.append_array(get_tree().get_nodes_in_group("enemies"))
+	for actor in actors:
+		var actor_body := actor as CharacterBody2D
+		if not is_instance_valid(actor_body) or actor_body.is_queued_for_deletion():
+			continue
+		var actor_id := actor_body.get_instance_id()
+		if _water_falling_actor_ids.has(actor_id):
+			continue
+		if _actor_fully_in_water(actor_body):
+			_handle_actor_fall_in_water(actor_body)
+
+
+func _actor_fully_in_water(actor: CharacterBody2D) -> bool:
+	var collision_shape := actor.get_node_or_null("CollisionShape2D") as CollisionShape2D
+	var half_size := Vector2(14.0, 14.0)
+	if collision_shape != null and collision_shape.shape is RectangleShape2D:
+		half_size = (collision_shape.shape as RectangleShape2D).size * 0.5 - Vector2.ONE * 2.0
+		half_size.x = maxf(4.0, half_size.x)
+		half_size.y = maxf(4.0, half_size.y)
+	for corner in [Vector2(-half_size.x, -half_size.y), Vector2(half_size.x, -half_size.y), Vector2(half_size.x, half_size.y), Vector2(-half_size.x, half_size.y)]:
+		if not is_water_hazard_cell(_world_to_cell(actor.global_position + corner)):
+			return false
+	return true
+
+
+func _handle_actor_fall_in_water(actor: CharacterBody2D) -> void:
+	var actor_id := actor.get_instance_id()
+	_water_falling_actor_ids[actor_id] = true
+	_spawn_water_fall_effect(actor.global_position)
+	actor.velocity = Vector2.ZERO
+	actor.set_physics_process(false)
+	var tween := create_tween()
+	tween.tween_property(actor, "modulate:a", 0.0, 0.28)
+	tween.tween_interval(maxf(0.0, WATER_FALL_DURATION - 0.28))
+	tween.tween_callback(_finish_actor_fall_in_water.bind(actor, actor_id))
+
+
+func _finish_actor_fall_in_water(actor: CharacterBody2D, actor_id: int) -> void:
+	if not is_instance_valid(actor):
+		_release_water_fall_actor(actor_id)
+		return
+	var safe_position := _find_nearest_safe_position(actor.global_position)
+	if actor.has_method("take_true_damage"):
+		actor.call("take_true_damage", 5)
+	elif actor.has_method("take_damage"):
+		actor.call("take_damage", 5)
+	actor.global_position = safe_position
+	actor.velocity = Vector2.ZERO
+	actor.modulate.a = 1.0
+	actor.set_physics_process(true)
+	_release_water_fall_actor(actor_id)
+
+
+func _release_water_fall_actor(actor_id: int) -> void:
+	_water_falling_actor_ids.erase(actor_id)
+
+
+func _spawn_water_fall_effect(world_position: Vector2) -> void:
+	var effect := WATER_FALL_EFFECT.new() as Node2D
+	effect.call("configure", world_seed ^ int(world_position.x) ^ int(world_position.y))
+	add_child(effect)
+	effect.global_position = world_position
+
+
+func _find_nearest_safe_position(world_position: Vector2) -> Vector2:
+	var origin := _world_to_cell(world_position)
+	if is_walkable(origin):
+		return (Vector2(origin) + Vector2.ONE * 0.5) * TILE_SIZE
+	for radius in range(1, 18):
+		for y in range(origin.y - radius, origin.y + radius + 1):
+			for x in range(origin.x - radius, origin.x + radius + 1):
+				if abs(x - origin.x) != radius and abs(y - origin.y) != radius:
+					continue
+				var cell := Vector2i(x, y)
+				if is_walkable(cell):
+					return (Vector2(cell) + Vector2.ONE * 0.5) * TILE_SIZE
+	return get_arena_world_center() if _arena_center.x >= 0 else Vector2.ZERO
 
 func is_archer_traversable(cell: Vector2i) -> bool:
 	# A full tile containing sea or a brazier is excluded from field propagation.
@@ -428,6 +765,28 @@ func is_archer_firing_position(world_position: Vector2) -> bool:
 	var cell := _world_to_cell(world_position)
 	return _get_archer_potential(cell) == 0 and not _is_archer_too_close(cell)
 
+
+func get_enemy_target(enemy_position: Vector2, current_target: Variant = null) -> Node2D:
+	var best_target: Node2D = player if is_instance_valid(player) else null
+	var best_score := INF
+	if best_target != null:
+		best_score = enemy_position.distance_squared_to(best_target.global_position)
+	for ally in get_tree().get_nodes_in_group("player_allies"):
+		var ally_node := ally as Node2D
+		if not is_instance_valid(ally_node) or not ally_node.has_method("take_damage"):
+			continue
+		var score := enemy_position.distance_squared_to(ally_node.global_position) * 0.65
+		if score < best_score:
+			best_score = score
+			best_target = ally_node
+	if is_instance_valid(current_target) and current_target is Node2D and current_target != best_target:
+		var current_node: Node2D = current_target
+		var current_score := enemy_position.distance_squared_to(current_node.global_position)
+		if current_node.is_in_group("player_allies"):
+			current_score *= 0.65
+		if current_score <= best_score * 1.2:
+			return current_node
+	return best_target
 
 func segment_touches_body(from_position: Vector2, to_position: Vector2, body: Node2D) -> bool:
 	var collision_shape := body.get_node_or_null("CollisionShape2D") as CollisionShape2D
@@ -634,9 +993,8 @@ func _set_experience_potential(cell: Vector2i, value: int) -> void:
 	_experience_potential[cell] = value
 
 func is_deep_ocean(cell: Vector2i) -> bool:
-	# The finite cache is surrounded by deterministic infinite deep ocean.
-	if cell.x < 0 or cell.y < 0 or cell.x >= map_width or cell.y >= map_height:
-		return true
+	if not _is_in_map(cell):
+		return float(_external_ocean_depth.get(cell, 1.0)) >= 0.9
 	return (
 		not _deep_ocean_tiles.is_empty()
 		and _deep_ocean_tiles[cell.y][cell.x] == 1
@@ -644,8 +1002,8 @@ func is_deep_ocean(cell: Vector2i) -> bool:
 
 
 func get_ocean_color(cell: Vector2i) -> Color:
-	if cell.x < 0 or cell.y < 0 or cell.x >= map_width or cell.y >= map_height:
-		return DEEP_OCEAN_COLOR
+	if not _is_in_map(cell):
+		return _ocean_color_from_depth(float(_external_ocean_depth.get(cell, 1.0)))
 	if _ocean_depth.is_empty():
 		return OCEAN_COLOR
 	return _ocean_color_from_depth(_ocean_depth[cell.y][cell.x])
@@ -670,13 +1028,22 @@ func _create_island(seed_value: int) -> Array[PackedByteArray]:
 	noise.fractal_gain = 0.52
 
 	var result := _new_grid()
+	# Preserve the old rounded grass-island profile in the south, then overlap a
+	# matching northern lobe for the desert instead of slicing one tall ellipse in half.
+	var lobe_radius_y := map_height * 0.42
+	var grass_center_y := map_height * 0.64
+	var desert_center_y := map_height * 0.31
 	for y in map_height:
 		for x in map_width:
 			var nx := (float(x) + 0.5 - map_width * 0.5) / (map_width * 0.5)
-			var ny := (float(y) + 0.5 - map_height * 0.5) / (map_height * 0.5)
-			var distance := sqrt(nx * nx + ny * ny)
+			var grass_ny := (float(y) + 0.5 - grass_center_y) / lobe_radius_y
+			var desert_ny := (float(y) + 0.5 - desert_center_y) / lobe_radius_y
+			var grass_distance := sqrt(nx * nx + grass_ny * grass_ny)
+			var desert_distance := sqrt(nx * nx + desert_ny * desert_ny)
+			var distance := minf(grass_distance, desert_distance)
 			var falloff := 1.0 - pow(distance, 1.55)
-			var coast_noise := noise.get_noise_2d(x, y) * coast_irregularity
+			var south_smooth := lerpf(1.0, 0.45, smoothstep(map_height * 0.62, map_height * 0.92, float(y)))
+			var coast_noise := noise.get_noise_2d(x, y) * coast_irregularity * south_smooth
 			result[y][x] = 1 if falloff + coast_noise > 1.0 - island_size else 0
 
 	var mainland := _keep_largest_landmass(result)
@@ -688,9 +1055,40 @@ func _create_island(seed_value: int) -> Array[PackedByteArray]:
 	if _has_land(cleaned):
 		mainland = _keep_largest_landmass(cleaned)
 	mainland = _fill_enclosed_water(mainland)
-	mainland = _fill_diagonal_land_corners(mainland, 1)
+	mainland = _fill_diagonal_land_corners(mainland, 2)
+	mainland = _fill_small_water_notches(mainland, 2)
+	mainland = _fill_enclosed_water(mainland)
 	return mainland
 
+
+
+func _build_desert_biome(seed_value: int) -> void:
+	_desert_tiles = _new_grid()
+	_savanna_tiles = _new_grid()
+	var boundary_noise := FastNoiseLite.new()
+	boundary_noise.seed = seed_value ^ 0x6D2B79F5
+	boundary_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	boundary_noise.frequency = 0.09
+	boundary_noise.fractal_type = FastNoiseLite.FRACTAL_FBM
+	boundary_noise.fractal_octaves = 3
+	var patch_noise := FastNoiseLite.new()
+	patch_noise.seed = seed_value ^ 0x13579BDF
+	patch_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	patch_noise.frequency = 0.19
+	patch_noise.fractal_type = FastNoiseLite.FRACTAL_FBM
+	patch_noise.fractal_octaves = 2
+	for y in map_height:
+		for x in map_width:
+			if _tiles[y][x] != 1:
+				continue
+			var boundary_y := map_height * 0.5 + boundary_noise.get_noise_2d(x, 0.0) * desert_boundary_variation
+			var local_variation := patch_noise.get_noise_2d(x, y)
+			var desert_edge := boundary_y + local_variation * 1.25
+			var savanna_edge := boundary_y + float(desert_transition_width) + local_variation * 2.5
+			if float(y) <= desert_edge:
+				_desert_tiles[y][x] = 1
+			elif float(y) <= savanna_edge:
+				_savanna_tiles[y][x] = 1
 
 func _fill_diagonal_land_corners(
 	source: Array[PackedByteArray],
@@ -725,13 +1123,15 @@ func _build_south_dock() -> void:
 	var max_shore_y := map_height - actual_length - 1
 	var start_x := -1
 	var shore_y := -1
+	var used_fallback := false
+	var platform_width := mini(map_width, maxi(5, actual_width + 2))
 	var map_center_x := map_width * 0.5
 	for y in range(max_shore_y, -1, -1):
 		var best_row_x := -1
 		var best_distance := INF
-		for candidate_x in range(0, map_width - actual_width + 1):
+		for candidate_x in range(0, map_width - platform_width + 1):
 			var connected := true
-			for offset in actual_width:
+			for offset in platform_width:
 				if (
 					not is_grass(Vector2i(candidate_x + offset, y))
 					or is_grass(Vector2i(candidate_x + offset, y + 1))
@@ -740,13 +1140,13 @@ func _build_south_dock() -> void:
 					break
 			if not connected:
 				continue
-			var candidate_center := candidate_x + actual_width * 0.5
+			var candidate_center := candidate_x + platform_width * 0.5
 			var distance := absf(candidate_center - map_center_x)
 			if distance < best_distance:
 				best_distance = distance
 				best_row_x = candidate_x
 		if best_row_x >= 0:
-			start_x = best_row_x
+			start_x = best_row_x + int((platform_width - actual_width) / 2)
 			shore_y = y
 			break
 
@@ -765,28 +1165,40 @@ func _build_south_dock() -> void:
 					anchor_x = x
 		if bottom_y < 0 or bottom_y + 1 >= map_height:
 			return
+		used_fallback = true
 		start_x = clampi(anchor_x - int(actual_width / 2), 0, map_width - actual_width)
 		shore_y = mini(bottom_y, max_shore_y)
 		for pad_y in range(maxi(0, shore_y - 1), shore_y + 1):
 			for x in range(start_x, start_x + actual_width):
 				_tiles[pad_y][x] = 1
 
-	# Reserve one complete grass cell on each side for the dock braziers.
-	if map_width >= actual_width + 2:
-		start_x = clampi(start_x, 1, map_width - actual_width - 1)
-	var platform_width := mini(map_width, maxi(5, actual_width + 2))
+
 	var platform_center_x := start_x + int(actual_width / 2)
 	var platform_start_x := clampi(
 		platform_center_x - int(platform_width / 2),
 		0,
 		map_width - platform_width
 	)
-	for platform_y in range(maxi(0, shore_y - 1), shore_y + 1):
-		for platform_x in range(platform_start_x, platform_start_x + platform_width):
-			_tiles[platform_y][platform_x] = 1
-	_tiles = _fill_diagonal_land_corners(_tiles, 1)
+	# A small taper keeps the wide, walkable shore from reading as a hard-added dock pad.
+	if not used_fallback:
+		for taper_x in range(
+			maxi(0, platform_start_x - 1),
+			mini(map_width, platform_start_x + platform_width + 1)
+		):
+			_tiles[maxi(0, shore_y - 1)][taper_x] = 1
+		for taper_x in range(platform_start_x, platform_start_x + platform_width):
+			_tiles[maxi(0, shore_y - 2)][taper_x] = 1
 
 	var water_start_y := shore_y + 1
+	if used_fallback:
+		for platform_y in range(maxi(0, shore_y - 1), shore_y + 1):
+			for platform_x in range(platform_start_x, platform_start_x + platform_width):
+				_tiles[platform_y][platform_x] = 1
+		if water_start_y < map_height:
+			for platform_x in range(platform_start_x, platform_start_x + platform_width):
+				_tiles[water_start_y][platform_x] = 0
+		_tiles = _fill_diagonal_land_corners(_tiles, 1)
+
 	if actual_length <= 0:
 		return
 
@@ -799,53 +1211,185 @@ func _build_south_dock() -> void:
 			_bridge_tiles[y][x] = BRIDGE_VERTICAL
 	_dock_spawn_cell = Vector2i(start_x + int(actual_width / 2), _dock_cells.end.y - 2)
 func _build_external_combat_island(seed_value: int) -> void:
-	_arena_tiles.clear()
-	_external_island_cells.clear()
+	if not external_arena_enabled:
+		return
 	var side: int = 1 if (seed_value & 1) == 0 else -1
+	var bridge_width := maxi(1, external_bridge_width)
+	if bridge_width % 2 == 0:
+		bridge_width -= 1
+	var half_width := int(bridge_width / 2)
 	var best_shore := Vector2i(-1, -1)
-	var best_score := -1
-	for y in range(1, map_height - 3):
-		var shore_x := -1
+	var best_score := -1000000
+	for y in range(half_width + 2, map_height - half_width - 2):
 		for x in range(map_width):
-			var cell := Vector2i(x, y)
-			if is_grass(cell) and is_grass(cell + Vector2i.DOWN) and is_grass(cell + Vector2i.DOWN * 2):
-				if side > 0 or shore_x < 0:
-					shore_x = x
-		if shore_x < 0:
-			continue
-		var score: int = shore_x if side > 0 else map_width - 1 - shore_x
-		if score > best_score:
-			best_score = score
-			best_shore = Vector2i(shore_x, y)
+			var candidate := Vector2i(x, y)
+			if not is_grass(candidate) or is_desert(candidate) or is_savanna(candidate) or is_grass(candidate + Vector2i(side, 0)):
+				continue
+			var valid_landing := true
+			for lane in range(-half_width, half_width + 1):
+				var lane_cell := candidate + Vector2i(0, lane)
+				if not is_grass(lane_cell) or is_desert(lane_cell) or is_savanna(lane_cell) or is_grass(lane_cell + Vector2i(side, 0)):
+					valid_landing = false
+					break
+			if not valid_landing:
+				continue
+			var edge_score := candidate.x * side
+			var center_score: int = -abs(candidate.y - int(map_height * 0.62))
+			var score: int = edge_score * 100 + center_score
+			if score > best_score:
+				best_score = score
+				best_shore = candidate
+
 	if best_shore.x < 0:
-		best_shore = Vector2i(map_width - 2 if side > 0 else 1, int(map_height / 2) - 1)
+		var forced_x := map_width - 1 if side > 0 else 0
+		var forced_y := clampi(int(map_height * 0.62), 3, map_height - 4)
+		best_shore = Vector2i(forced_x, forced_y)
 
-	# Flatten a three-tile mainland landing so the first bridge span genuinely starts on shore.
-	for lane in range(3):
-		for inset in range(3):
-			set_world_grass(best_shore + Vector2i(-side * inset, lane), true)
-	var shore_x := best_shore.x
-	var bridge_y := best_shore.y
-	for step in range(0, 13):
-		for lane in range(3):
-			set_world_bridge(Vector2i(shore_x + side * step, bridge_y + lane), BRIDGE_HORIZONTAL)
+	# Both bridgeheads are flat 2-by-5 grass platforms. Only the outer cell carries deck boards.
+	for lane in range(-2, 3):
+		for inset in range(2):
+			var landing_cell := best_shore + Vector2i(-side * inset, lane)
+			set_world_grass(landing_cell, true)
+			_set_mainland_grass_biome(landing_cell)
+	_external_mainland_landing = best_shore
+	for step in range(external_bridge_length + 1):
+		for lane in range(-half_width, half_width + 1):
+			var bridge_cell := best_shore + Vector2i(side * step, lane)
+			if step > 0:
+				set_world_grass(bridge_cell, false)
+			set_world_bridge(bridge_cell, BRIDGE_HORIZONTAL)
 
-	var island_center := Vector2i(shore_x + side * 18, bridge_y + 1)
-	for y_offset in range(-6, 7):
-		for x_offset in range(-6, 7):
-			var distance: int = abs(x_offset) + abs(y_offset)
-			var variation: int = absi((x_offset * 92821) ^ (y_offset * 68917) ^ seed_value) % 3
-			if distance <= 8 + variation:
-				var island_cell := island_center + Vector2i(x_offset, y_offset)
-				set_world_grass(island_cell, true)
-				_external_island_cells[island_cell] = true
-	for y_offset in range(-4, 5):
-		for x_offset in range(-4, 5):
-			_arena_tiles[island_center + Vector2i(x_offset, y_offset)] = true
+	var arena_half := int(external_arena_size / 2)
+	var outer_radius := arena_half + 3
+	# The bridge ends on exactly one grass cell at the island edge; the second platform cell is inland.
+	var island_center := best_shore + Vector2i(side * (external_bridge_length + outer_radius), 0)
+	_arena_center = island_center
+	_arena_bounds = Rect2i(island_center - Vector2i.ONE * arena_half, Vector2i.ONE * external_arena_size)
+	var island_noise := FastNoiseLite.new()
+	island_noise.seed = seed_value ^ 0x6E624EB7
+	island_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	island_noise.frequency = 0.18
+	island_noise.fractal_type = FastNoiseLite.FRACTAL_FBM
+	island_noise.fractal_octaves = 2
+	for y_offset in range(-outer_radius, outer_radius + 1):
+		for x_offset in range(-outer_radius, outer_radius + 1):
+			var contour_radius := float(outer_radius) + island_noise.get_noise_2d(x_offset, y_offset) * 0.85
+			var radial_distance := Vector2(x_offset, y_offset).length()
+			if radial_distance > contour_radius:
+				continue
+			var island_cell := island_center + Vector2i(x_offset, y_offset)
+			set_world_grass(island_cell, true)
+			_external_island_cells[island_cell] = true
+
+	# Guarantee one complete grass ring around the stone floor. The noisy contour
+	# may contribute up to two additional rings, so the island stays within +1 to +3 tiles.
+	for y_offset in range(-arena_half - 1, arena_half + 2):
+		for x_offset in range(-arena_half - 1, arena_half + 2):
+			var inner_grass_cell := island_center + Vector2i(x_offset, y_offset)
+			set_world_grass(inner_grass_cell, true)
+			_external_island_cells[inner_grass_cell] = true
+
+	# The island bridgehead mirrors the mainland: 2 cells long, 5 cells across.
+	for lane in range(-2, 3):
+		for inset in range(2):
+			var landing_cell := island_center + Vector2i(-side * (outer_radius - inset), lane)
+			set_world_grass(landing_cell, true)
+			_external_island_cells[landing_cell] = true
+
+	for y_offset in range(-arena_half, arena_half + 1):
+		for x_offset in range(-arena_half, arena_half + 1):
+			var arena_cell := island_center + Vector2i(x_offset, y_offset)
+			set_world_grass(arena_cell, true)
+			_external_island_cells[arena_cell] = true
+			_arena_tiles[arena_cell] = true
+
 	_external_bridge_rect = Rect2i(
-		Vector2i(mini(shore_x, shore_x + side * 12), bridge_y),
-		Vector2i(13, 3)
+		Vector2i(mini(best_shore.x, best_shore.x + side * external_bridge_length), best_shore.y - half_width),
+		Vector2i(external_bridge_length + 1, bridge_width)
 	)
+	_build_external_ocean_depths(seed_value)
+
+
+func _ensure_arena_floor() -> void:
+	if _arena_bounds.size.x <= 0 or _arena_bounds.size.y <= 0:
+		return
+	for y in range(_arena_bounds.position.y, _arena_bounds.end.y):
+		for x in range(_arena_bounds.position.x, _arena_bounds.end.x):
+			var arena_cell := Vector2i(x, y)
+			set_world_grass(arena_cell, true)
+			_external_island_cells[arena_cell] = true
+			_arena_tiles[arena_cell] = true
+
+func _build_external_ocean_depths(seed_value: int) -> void:
+	_external_ocean_depth.clear()
+	if _external_island_cells.is_empty() or _external_bridge_rect.size.x <= 0:
+		return
+	var bounds := _external_bridge_rect.grow(9)
+	for island_cell_value in _external_island_cells:
+		var island_cell: Vector2i = island_cell_value
+		bounds = bounds.merge(Rect2i(island_cell, Vector2i.ONE).grow(9))
+	_external_land_depth_sources.clear()
+	for island_cell_value in _external_island_cells:
+		var island_cell: Vector2i = island_cell_value
+		_external_land_depth_sources.append(island_cell)
+	# Include nearby finite mainland cells so the ocean bands continue cleanly across
+	# the main-map boundary into the sparse external world.
+	var source_min_x := maxi(0, bounds.position.x)
+	var source_max_x := mini(map_width - 1, bounds.end.x - 1)
+	var source_min_y := maxi(0, bounds.position.y)
+	var source_max_y := mini(map_height - 1, bounds.end.y - 1)
+	for y in range(source_min_y, source_max_y + 1):
+		for x in range(source_min_x, source_max_x + 1):
+			var mainland_cell := Vector2i(x, y)
+			if is_grass(mainland_cell):
+				_external_land_depth_sources.append(mainland_cell)
+	var noise := FastNoiseLite.new()
+	noise.seed = seed_value ^ 0x22E5A7
+	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	noise.frequency = 0.16
+	for y in range(bounds.position.y, bounds.end.y):
+		for x in range(bounds.position.x, bounds.end.x):
+			var cell := Vector2i(x, y)
+			if is_grass(cell) or is_bridge(cell):
+				continue
+			var land_distance := _external_structure_distance(cell, false)
+			var bridge_distance := _external_structure_distance(cell, true)
+			var noisy_distance := land_distance + noise.get_noise_2d(x, y) * 0.45
+			var depth := 1.0
+			if noisy_distance <= 1.4:
+				depth = 0.0
+			elif noisy_distance <= 3.8:
+				depth = 0.34
+			elif noisy_distance <= 6.2:
+				depth = 0.67
+			# Bridges never create the light coastal band, but their shallow water must
+			# flow through a transition band before reaching deep water.
+			if bridge_distance <= 1.0:
+				depth = minf(depth, 0.34)
+			elif bridge_distance <= 4.0:
+				depth = minf(depth, 0.67)
+			_external_ocean_depth[cell] = depth
+
+
+func _external_structure_distance(cell: Vector2i, bridge_only: bool) -> float:
+	var closest := 1000000.0
+	if bridge_only:
+		for bridge_cell_value in _world_bridge_overrides:
+			var bridge_cell: Vector2i = bridge_cell_value
+			closest = minf(closest, float(maxi(abs(cell.x - bridge_cell.x), abs(cell.y - bridge_cell.y))))
+		return closest
+	for land_cell in _external_land_depth_sources:
+		closest = minf(closest, float(maxi(abs(cell.x - land_cell.x), abs(cell.y - land_cell.y))))
+	return closest
+
+
+func is_external_combat_area(cell: Vector2i) -> bool:
+	return _external_island_cells.has(cell) or _external_bridge_rect.grow(1).has_point(cell)
+
+func _clear_player_allies() -> void:
+	for ally in get_tree().get_nodes_in_group("player_allies"):
+		if is_instance_valid(ally):
+			ally.queue_free()
 
 func _clear_arrow_projectiles() -> void:
 	for projectile in get_tree().get_nodes_in_group("arrow_projectiles"):
@@ -858,6 +1402,12 @@ func _clear_archers() -> void:
 			archer.queue_free()
 	_archers.clear()
 
+
+func _clear_spear_throwers() -> void:
+	for thrower in _spear_throwers:
+		if is_instance_valid(thrower):
+			thrower.queue_free()
+	_spear_throwers.clear()
 
 func _clear_swordsmen() -> void:
 	for swordsman in _swordsmen:
@@ -883,11 +1433,44 @@ func _get_enemy_spawn_bounds() -> Rect2i:
 	var max_y := mini(map_height - 1, player_cell.y + radius_y)
 	return Rect2i(min_x, min_y, max_x - min_x + 1, max_y - min_y + 1)
 
-func _get_sharpshooter_spawn_chance() -> float:
-	if player.level < 3 or _sharpshooters.size() >= 1:
+func _advanced_enemy_cap_released() -> bool:
+	return player.level >= 5
+
+
+func _get_swordmaster_spawn_chance() -> float:
+	if _normal_swordsman_kills < advanced_enemy_unlock_kills or (not _advanced_enemy_cap_released() and _swordmasters.size() >= 1):
 		return 0.0
-	var base_chance := 0.5 if _sharpshooter_unlock_boost_active else sharpshooter_base_spawn_chance
-	return minf(1.0, base_chance + sharpshooter_miss_bonus * _sharpshooter_miss_count)
+	return minf(1.0, sharpshooter_base_spawn_chance + sharpshooter_miss_bonus * _swordmaster_miss_count)
+
+func _get_sharpshooter_spawn_chance() -> float:
+	if _normal_archer_kills < sharpshooter_unlock_archer_kills or (not _advanced_enemy_cap_released() and _sharpshooters.size() >= 1):
+		return 0.0
+	return minf(1.0, sharpshooter_base_spawn_chance + sharpshooter_miss_bonus * _sharpshooter_miss_count)
+
+func _try_spawn_spear_thrower() -> void:
+	var viewport_size := get_viewport_rect().size
+	var camera := player.get_node("Camera2D") as Camera2D
+	var visible_size := viewport_size / camera.zoom
+	var excluded_view := Rect2(player.position - visible_size * 0.5, visible_size).grow(TILE_SIZE * 1.5)
+	var spawn_bounds := _get_enemy_spawn_bounds()
+	for _attempt in 96:
+		var cell := Vector2i(
+			_enemy_rng.randi_range(spawn_bounds.position.x, spawn_bounds.end.x - 1),
+			_enemy_rng.randi_range(spawn_bounds.position.y, spawn_bounds.end.y - 1)
+		)
+		if not is_grass(cell) or (not is_desert(cell) and not is_savanna(cell)) or is_bridge(cell) or is_brazier(cell) or is_rock(cell):
+			continue
+		var spawn_position := (Vector2(cell) + Vector2.ONE * 0.5) * TILE_SIZE
+		if excluded_view.has_point(spawn_position) or _is_archer_spawn_occupied(spawn_position):
+			continue
+		var spawn_fire_thrower := _normal_spear_thrower_kills >= fire_spear_thrower_unlock_kills and _enemy_rng.randf() < fire_spear_thrower_spawn_chance
+		var thrower := SPEAR_THROWER_SCENE.instantiate() as CharacterBody2D
+		thrower.call("configure", player, _enemy_rng.randi(), spawn_fire_thrower)
+		thrower.position = spawn_position
+		add_child(thrower, true)
+		thrower.connect("defeated", _on_enemy_defeated.bind(thrower))
+		_spear_throwers.append(thrower)
+		return
 
 func _try_spawn_archer() -> void:
 	var viewport_size := get_viewport_rect().size
@@ -904,7 +1487,7 @@ func _try_spawn_archer() -> void:
 			_enemy_rng.randi_range(spawn_bounds.position.x, spawn_bounds.end.x - 1),
 			_enemy_rng.randi_range(spawn_bounds.position.y, spawn_bounds.end.y - 1)
 		)
-		if not is_grass(cell) or is_bridge(cell) or is_brazier(cell) or is_rock(cell):
+		if not is_grass(cell) or is_desert(cell) or is_bridge(cell) or is_brazier(cell) or is_rock(cell):
 			continue
 		var spawn_position := (Vector2(cell) + Vector2.ONE * 0.5) * TILE_SIZE
 		if excluded_view.has_point(spawn_position):
@@ -916,8 +1499,7 @@ func _try_spawn_archer() -> void:
 		var spawn_scene: PackedScene = SHARPSHOOTER_SCENE if spawn_sharpshooter else ARCHER_SCENE
 		if spawn_sharpshooter:
 			_sharpshooter_miss_count = 0
-			_sharpshooter_unlock_boost_active = false
-		elif player.level >= 3 and _sharpshooters.is_empty():
+		elif sharpshooter_chance > 0.0:
 			_sharpshooter_miss_count += 1
 		var archer := spawn_scene.instantiate() as CharacterBody2D
 		archer.call("configure", player, _enemy_rng.randi())
@@ -940,16 +1522,24 @@ func _try_spawn_swordsman() -> void:
 			_enemy_rng.randi_range(spawn_bounds.position.x, spawn_bounds.end.x - 1),
 			_enemy_rng.randi_range(spawn_bounds.position.y, spawn_bounds.end.y - 1)
 		)
-		if not is_grass(cell) or is_bridge(cell) or is_brazier(cell) or is_rock(cell):
+		if not is_grass(cell) or is_desert(cell) or is_bridge(cell) or is_brazier(cell) or is_rock(cell):
 			continue
 		var spawn_position := (Vector2(cell) + Vector2.ONE * 0.5) * TILE_SIZE
 		if excluded_view.has_point(spawn_position) or _is_archer_spawn_occupied(spawn_position):
 			continue
-		var swordsman := SWORDSMAN_SCENE.instantiate() as CharacterBody2D
+		var swordmaster_chance := _get_swordmaster_spawn_chance()
+		var spawn_swordmaster := swordmaster_chance > 0.0 and _enemy_rng.randf() < swordmaster_chance
+		if spawn_swordmaster:
+			_swordmaster_miss_count = 0
+		elif swordmaster_chance > 0.0:
+			_swordmaster_miss_count += 1
+		var swordsman := (SWORDMASTER_SCENE if spawn_swordmaster else SWORDSMAN_SCENE).instantiate() as CharacterBody2D
 		swordsman.call("configure", player, _enemy_rng.randi())
 		swordsman.position = spawn_position
 		add_child(swordsman, true)
 		swordsman.connect("defeated", _on_enemy_defeated.bind(swordsman))
+		if spawn_swordmaster:
+			_swordmasters.append(swordsman)
 		_swordsmen.append(swordsman)
 		return
 func _try_spawn_slime() -> void:
@@ -963,7 +1553,7 @@ func _try_spawn_slime() -> void:
 			_enemy_rng.randi_range(spawn_bounds.position.x, spawn_bounds.end.x - 1),
 			_enemy_rng.randi_range(spawn_bounds.position.y, spawn_bounds.end.y - 1)
 		)
-		if not is_grass(cell) or is_bridge(cell) or is_brazier(cell) or is_rock(cell):
+		if not is_grass(cell) or is_desert(cell) or is_bridge(cell) or is_brazier(cell) or is_rock(cell):
 			continue
 		var spawn_position := (Vector2(cell) + Vector2.ONE * 0.5) * TILE_SIZE
 		if excluded_view.has_point(spawn_position) or _is_archer_spawn_occupied(spawn_position):
@@ -982,7 +1572,13 @@ func _on_slime_defeated(slime: Node2D) -> void:
 	call_deferred("_try_spawn_health_pickup", slime.global_position)
 
 func _on_enemy_defeated(enemy: Node2D) -> void:
-	var experience_amount := 5 if enemy is SharpshooterEnemy else 2
+	if enemy is SpearThrowerEnemy and not bool(enemy.get("_fire_variant")):
+		_normal_spear_thrower_kills += 1
+	elif enemy is ArcherEnemy and not (enemy is SharpshooterEnemy):
+		_normal_archer_kills += 1
+	elif enemy.scene_file_path == "res://swordsman.tscn":
+		_normal_swordsman_kills += 1
+	var experience_amount := 8 if enemy is SharpshooterEnemy or enemy.scene_file_path == "res://swordmaster.tscn" else (11 if enemy.scene_file_path == "res://spear_thrower.tscn" else 2)
 	call_deferred("_spawn_enemy_experience", enemy.global_position, experience_amount)
 	call_deferred("_try_spawn_health_pickup", enemy.global_position)
 
@@ -993,6 +1589,10 @@ func _try_spawn_health_pickup(drop_position: Vector2) -> void:
 	add_child(pickup, true)
 	pickup.global_position = drop_position
 
+func _spawn_boss_experience(drop_position: Vector2) -> void:
+	# 50 + 10 + 5 + 1 + 1 = 67. Large gold orbs make the boss reward legible.
+	for value in [50, 10, 5, 1, 1]:
+		_spawn_experience_pickup(drop_position, value)
 func _spawn_enemy_experience(drop_position: Vector2, amount: int) -> void:
 	var remaining := maxi(0, amount)
 	while remaining >= 5:
@@ -1011,7 +1611,7 @@ func _spawn_experience_pickup(drop_position: Vector2, value: int) -> void:
 	pickup.global_position = drop_position
 
 func _is_archer_spawn_occupied(spawn_position: Vector2) -> bool:
-	for enemy in _archers + _swordsmen + _slimes:
+	for enemy in _archers + _spear_throwers + _swordsmen + _slimes:
 		if not is_instance_valid(enemy):
 			continue
 		var offset := enemy.global_position - spawn_position
@@ -1054,61 +1654,37 @@ func _place_player() -> void:
 func _build_deep_ocean(seed_value: int) -> void:
 	_deep_ocean_tiles = _new_grid()
 	_ocean_depth = []
-	var distances: Array[PackedInt32Array] = []
 	var infinity := 1000000000
+	var land_distances: Array[PackedInt32Array] = []
+	var bridge_distances: Array[PackedInt32Array] = []
+	var shallow_distances: Array[PackedInt32Array] = []
+
 	for y in map_height:
-		var distance_row := PackedInt32Array()
-		distance_row.resize(map_width)
-		distance_row.fill(infinity)
-		distances.append(distance_row)
+		var land_row := PackedInt32Array()
+		land_row.resize(map_width)
+		land_row.fill(infinity)
+		land_distances.append(land_row)
+		var bridge_row := PackedInt32Array()
+		bridge_row.resize(map_width)
+		bridge_row.fill(infinity)
+		bridge_distances.append(bridge_row)
+		var shallow_row := PackedInt32Array()
+		shallow_row.resize(map_width)
+		shallow_row.fill(infinity)
+		shallow_distances.append(shallow_row)
 		var depth_row := PackedFloat32Array()
 		depth_row.resize(map_width)
 		_ocean_depth.append(depth_row)
 		for x in map_width:
-			if is_grass(Vector2i(x, y)):
-				distances[y][x] = 0
+			var cell := Vector2i(x, y)
+			if is_grass(cell) and not is_bridge(cell):
+				land_distances[y][x] = 0
+			if is_bridge(cell):
+				bridge_distances[y][x] = 0
 
-	# Two-pass chamfer distance: cardinal movement costs 10, diagonals cost 14.
-	for y in map_height:
-		for x in map_width:
-			if distances[y][x] == 0:
-				continue
-			var best := distances[y][x]
-			if x > 0:
-				best = mini(best, distances[y][x - 1] + 10)
-			if y > 0:
-				best = mini(best, distances[y - 1][x] + 10)
-				if x > 0:
-					best = mini(best, distances[y - 1][x - 1] + 14)
-				if x + 1 < map_width:
-					best = mini(best, distances[y - 1][x + 1] + 14)
-			distances[y][x] = best
+	_relax_distance_field(land_distances)
+	_relax_distance_field(bridge_distances)
 
-	for y in range(map_height - 1, -1, -1):
-		for x in range(map_width - 1, -1, -1):
-			if distances[y][x] == 0:
-				continue
-			var best := distances[y][x]
-			if x + 1 < map_width:
-				best = mini(best, distances[y][x + 1] + 10)
-			if y + 1 < map_height:
-				best = mini(best, distances[y + 1][x] + 10)
-				if x > 0:
-					best = mini(best, distances[y + 1][x - 1] + 14)
-				if x + 1 < map_width:
-					best = mini(best, distances[y + 1][x + 1] + 14)
-			distances[y][x] = best
-
-	var directions: Array[Vector2i] = [
-		Vector2i.LEFT,
-		Vector2i.RIGHT,
-		Vector2i.UP,
-		Vector2i.DOWN,
-		Vector2i(-1, -1),
-		Vector2i(1, -1),
-		Vector2i(-1, 1),
-		Vector2i(1, 1),
-	]
 	var boundary_noise := FastNoiseLite.new()
 	boundary_noise.seed = seed_value ^ 0x5F3759DF
 	boundary_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
@@ -1116,70 +1692,259 @@ func _build_deep_ocean(seed_value: int) -> void:
 	boundary_noise.fractal_type = FastNoiseLite.FRACTAL_FBM
 	boundary_noise.fractal_octaves = 3
 
+	# Phase 1: land grows a coastal ring then shallow water; bridges independently
+	# grow one shallow-water ring. Both results become a shared shallow frontier.
 	for y in map_height:
 		for x in map_width:
 			var cell := Vector2i(x, y)
 			if is_grass(cell) or is_bridge(cell):
 				continue
-			var land_distance := float(distances[y][x]) / 10.0
+			var land_distance := float(land_distances[y][x]) / 10.0
+			var bridge_distance := float(bridge_distances[y][x]) / 10.0
+			var noise_value := boundary_noise.get_noise_2d(x, y)
+			var band_width := lerpf(
+				shallow_transition_min_width,
+				maxi(shallow_transition_min_width, shallow_transition_max_width),
+				noise_value * 0.5 + 0.5
+			)
+			var land_shallow_end := 1.41 + band_width
+			if (land_distance > 1.41 and land_distance <= land_shallow_end) or bridge_distance <= 1.0:
+				shallow_distances[y][x] = 0
+
+	_relax_distance_field(shallow_distances)
+
+	# Phase 2: the combined shallow frontier expands transition water. Deep water
+	# begins only outside that shared transition band.
+	for y in map_height:
+		for x in map_width:
+			var cell := Vector2i(x, y)
+			if is_grass(cell) or is_bridge(cell):
+				continue
+			var land_distance := float(land_distances[y][x]) / 10.0
+			# The mainland's one-tile coastal shelf is an explicit first layer. Bridge
+			# shallow water begins outside it, so a bridge cannot erase the shoreline.
 			if land_distance <= 1.41:
 				_ocean_depth[y][x] = 0.0
 				continue
-
-			var dock_dx := maxi(
-				maxi(_dock_cells.position.x - cell.x, 0),
-				cell.x - (_dock_cells.end.x - 1)
-			)
-			var dock_dy := maxi(
-				maxi(_dock_cells.position.y - cell.y, 0),
-				cell.y - (_dock_cells.end.y - 1)
-			)
-			if maxi(dock_dx, dock_dy) <= 1:
+			if shallow_distances[y][x] == 0:
 				_ocean_depth[y][x] = 0.34
 				continue
-
 			var noise_value := boundary_noise.get_noise_2d(x, y)
-			var effective_distance := (
-				land_distance + noise_value * deep_ocean_distance_variation
-			)
-			var maximum_width := maxi(
+			var transition_width := lerpf(
 				shallow_transition_min_width,
-				shallow_transition_max_width
+				maxi(shallow_transition_min_width, shallow_transition_max_width),
+				noise_value * 0.5 + 0.5
 			)
-			var width_noise := noise_value * 0.5 + 0.5
-			var shared_band_width := lerpf(
-				shallow_transition_min_width,
-				maximum_width,
-				width_noise
-			)
-			var shallow_end := 1.41 + shared_band_width
-			var transition_end := shallow_end + shared_band_width
-			if effective_distance <= shallow_end:
-				_ocean_depth[y][x] = 0.34
-			elif (
-				effective_distance <= transition_end
-				or land_distance < deep_ocean_min_land_distance
-			):
+			var shallow_distance := float(shallow_distances[y][x]) / 10.0
+			if shallow_distance <= transition_width:
 				_ocean_depth[y][x] = 0.67
 			else:
 				_ocean_depth[y][x] = 1.0
 				_deep_ocean_tiles[y][x] = 1
 
 	_build_ocean_mesh()
+	_build_boundary_ocean_depths(seed_value)
+
+
+func _build_boundary_ocean_depths(seed_value: int) -> void:
+	# The finite map's distance field continues past every border before the
+	# infinite renderer takes over, preventing deep ocean from hard-cutting a coast.
+	const MARGIN := 12
+	const INFINITY := 1000000000
+	var field_width := map_width + MARGIN * 2
+	var field_height := map_height + MARGIN * 2
+	var land_field: Array[PackedInt32Array] = []
+	var bridge_field: Array[PackedInt32Array] = []
+	var shallow_field: Array[PackedInt32Array] = []
+	for local_y in range(field_height):
+		var land_row := PackedInt32Array()
+		land_row.resize(field_width)
+		land_row.fill(INFINITY)
+		land_field.append(land_row)
+		var bridge_row := PackedInt32Array()
+		bridge_row.resize(field_width)
+		bridge_row.fill(INFINITY)
+		bridge_field.append(bridge_row)
+		var shallow_row := PackedInt32Array()
+		shallow_row.resize(field_width)
+		shallow_row.fill(INFINITY)
+		shallow_field.append(shallow_row)
+		for local_x in range(field_width):
+			var world_cell := Vector2i(local_x - MARGIN, local_y - MARGIN)
+			if is_grass(world_cell) and not is_bridge(world_cell):
+				land_field[local_y][local_x] = 0
+			if is_bridge(world_cell):
+				bridge_field[local_y][local_x] = 0
+
+	_relax_distance_field_sized(land_field, field_width, field_height)
+	_relax_distance_field_sized(bridge_field, field_width, field_height)
+	var boundary_noise := FastNoiseLite.new()
+	boundary_noise.seed = seed_value ^ 0x5F3759DF
+	boundary_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	boundary_noise.frequency = 0.075
+	boundary_noise.fractal_type = FastNoiseLite.FRACTAL_FBM
+	boundary_noise.fractal_octaves = 3
+
+	for local_y in range(field_height):
+		for local_x in range(field_width):
+			var world_cell := Vector2i(local_x - MARGIN, local_y - MARGIN)
+			if is_grass(world_cell) or is_bridge(world_cell):
+				continue
+			var land_distance := float(land_field[local_y][local_x]) / 10.0
+			var bridge_distance := float(bridge_field[local_y][local_x]) / 10.0
+			var noise_value := boundary_noise.get_noise_2d(world_cell.x, world_cell.y)
+			var band_width := lerpf(
+				shallow_transition_min_width,
+				maxi(shallow_transition_min_width, shallow_transition_max_width),
+				noise_value * 0.5 + 0.5
+			)
+			if (land_distance > 1.41 and land_distance <= 1.41 + band_width) or bridge_distance <= 1.0:
+				shallow_field[local_y][local_x] = 0
+	_relax_distance_field_sized(shallow_field, field_width, field_height)
+
+	for local_y in range(field_height):
+		for local_x in range(field_width):
+			var world_cell := Vector2i(local_x - MARGIN, local_y - MARGIN)
+			if _is_in_map(world_cell) or is_grass(world_cell) or is_bridge(world_cell):
+				continue
+			if _external_ocean_depth.has(world_cell):
+				continue
+			var land_distance := float(land_field[local_y][local_x]) / 10.0
+			if land_distance <= 1.41:
+				_external_ocean_depth[world_cell] = 0.0
+				continue
+			if shallow_field[local_y][local_x] == 0:
+				_external_ocean_depth[world_cell] = 0.34
+				continue
+			var noise_value := boundary_noise.get_noise_2d(world_cell.x, world_cell.y)
+			var transition_width := lerpf(
+				shallow_transition_min_width,
+				maxi(shallow_transition_min_width, shallow_transition_max_width),
+				noise_value * 0.5 + 0.5
+			)
+			var shallow_distance := float(shallow_field[local_y][local_x]) / 10.0
+			_external_ocean_depth[world_cell] = 0.67 if shallow_distance <= transition_width else 1.0
+
+
+func _relax_distance_field_sized(
+	field: Array[PackedInt32Array],
+	field_width: int,
+	field_height: int
+) -> void:
+	for y in range(field_height):
+		for x in range(field_width):
+			if field[y][x] == 0:
+				continue
+			var best := field[y][x]
+			if x > 0:
+				best = mini(best, field[y][x - 1] + 10)
+			if y > 0:
+				best = mini(best, field[y - 1][x] + 10)
+				if x > 0:
+					best = mini(best, field[y - 1][x - 1] + 14)
+				if x + 1 < field_width:
+					best = mini(best, field[y - 1][x + 1] + 14)
+			field[y][x] = best
+	for y in range(field_height - 1, -1, -1):
+		for x in range(field_width - 1, -1, -1):
+			if field[y][x] == 0:
+				continue
+			var best := field[y][x]
+			if x + 1 < field_width:
+				best = mini(best, field[y][x + 1] + 10)
+			if y + 1 < field_height:
+				best = mini(best, field[y + 1][x] + 10)
+				if x > 0:
+					best = mini(best, field[y + 1][x - 1] + 14)
+				if x + 1 < field_width:
+					best = mini(best, field[y + 1][x + 1] + 14)
+			field[y][x] = best
+
+
+func _relax_distance_field(field: Array[PackedInt32Array]) -> void:
+	for y in map_height:
+		for x in map_width:
+			if field[y][x] == 0:
+				continue
+			var best := field[y][x]
+			if x > 0:
+				best = mini(best, field[y][x - 1] + 10)
+			if y > 0:
+				best = mini(best, field[y - 1][x] + 10)
+				if x > 0:
+					best = mini(best, field[y - 1][x - 1] + 14)
+				if x + 1 < map_width:
+					best = mini(best, field[y - 1][x + 1] + 14)
+			field[y][x] = best
+	for y in range(map_height - 1, -1, -1):
+		for x in range(map_width - 1, -1, -1):
+			if field[y][x] == 0:
+				continue
+			var best := field[y][x]
+			if x + 1 < map_width:
+				best = mini(best, field[y][x + 1] + 10)
+			if y + 1 < map_height:
+				best = mini(best, field[y + 1][x] + 10)
+				if x > 0:
+					best = mini(best, field[y + 1][x - 1] + 14)
+				if x + 1 < map_width:
+					best = mini(best, field[y + 1][x + 1] + 14)
+			field[y][x] = best
+
+func _distance_to_any_bridge(cell: Vector2i) -> int:
+	var closest := 1000000
+	for y in map_height:
+		for x in map_width:
+			if not is_bridge(Vector2i(x, y)):
+				continue
+			closest = mini(closest, maxi(abs(cell.x - x), abs(cell.y - y)))
+	for bridge_cell_value in _world_bridge_overrides:
+		var bridge_cell: Vector2i = bridge_cell_value
+		closest = mini(closest, maxi(abs(cell.x - bridge_cell.x), abs(cell.y - bridge_cell.y)))
+	return closest
+
+func _refresh_active_region(force := false) -> void:
+	if not is_instance_valid(player):
+		return
+	var player_cell := _world_to_cell(player.global_position)
+	var chunk := Vector2i(
+		floori(float(player_cell.x) / CHUNK_SIZE_TILES),
+		floori(float(player_cell.y) / CHUNK_SIZE_TILES)
+	)
+	if not force and chunk == _active_chunk:
+		return
+	_active_chunk = chunk
+	var min_cell := (chunk - Vector2i.ONE * active_chunk_radius) * CHUNK_SIZE_TILES
+	var max_cell := (chunk + Vector2i.ONE * (active_chunk_radius + 1)) * CHUNK_SIZE_TILES
+	var min_x := clampi(min_cell.x, 0, map_width)
+	var min_y := clampi(min_cell.y, 0, map_height)
+	var max_x := clampi(max_cell.x, 0, map_width)
+	var max_y := clampi(max_cell.y, 0, map_height)
+	_active_tile_bounds = Rect2i(min_x, min_y, max_x - min_x, max_y - min_y)
+	_build_ocean_mesh()
+	_rebuild_terrain_collision()
+	queue_redraw()
+
+
+func _get_active_tile_bounds() -> Rect2i:
+	if _active_tile_bounds.size.x <= 0 or _active_tile_bounds.size.y <= 0:
+		return Rect2i(Vector2i.ZERO, Vector2i(map_width, map_height))
+	return _active_tile_bounds
+
 
 func _build_ocean_mesh() -> void:
 	_ocean_mesh = ArrayMesh.new()
-	var tile_count := map_width * map_height
+	var bounds := _get_active_tile_bounds()
+	var tile_count := bounds.size.x * bounds.size.y
 	var vertices := PackedVector3Array()
 	var colors := PackedColorArray()
 	var indices := PackedInt32Array()
 	vertices.resize(tile_count * 4)
 	colors.resize(tile_count * 4)
 	indices.resize(tile_count * 6)
-
 	var tile_index := 0
-	for y in map_height:
-		for x in map_width:
+	for y in range(bounds.position.y, bounds.end.y):
+		for x in range(bounds.position.x, bounds.end.x):
 			var vertex_offset := tile_index * 4
 			var index_offset := tile_index * 6
 			var left := float(x * TILE_SIZE)
@@ -1202,7 +1967,6 @@ func _build_ocean_mesh() -> void:
 			indices[index_offset + 4] = vertex_offset + 2
 			indices[index_offset + 5] = vertex_offset + 3
 			tile_index += 1
-
 	var arrays := []
 	arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX] = vertices
@@ -1221,12 +1985,7 @@ func _new_grid() -> Array[PackedByteArray]:
 func _keep_largest_landmass(source: Array[PackedByteArray]) -> Array[PackedByteArray]:
 	var visited := _new_grid()
 	var largest := PackedInt32Array()
-	var directions: Array[Vector2i] = [
-		Vector2i.LEFT,
-		Vector2i.RIGHT,
-		Vector2i.UP,
-		Vector2i.DOWN,
-	]
+	var directions: Array[Vector2i] = EIGHT_DIRECTIONS
 
 	for y in map_height:
 		for x in map_width:
@@ -1280,18 +2039,12 @@ func _fill_enclosed_water(source: Array[PackedByteArray]) -> Array[PackedByteArr
 			outside_water[y][map_width - 1] = 1
 			pending.append(y * map_width + map_width - 1)
 
-	var directions: Array[Vector2i] = [
-		Vector2i.LEFT,
-		Vector2i.RIGHT,
-		Vector2i.UP,
-		Vector2i.DOWN,
-	]
 	while not pending.is_empty():
 		var last_index := pending.size() - 1
 		var encoded: int = pending[last_index]
 		pending.resize(last_index)
 		var cell := Vector2i(encoded % map_width, int(encoded / map_width))
-		for direction in directions:
+		for direction in EIGHT_DIRECTIONS:
 			var neighbor := cell + direction
 			if neighbor.x < 0 or neighbor.y < 0 or neighbor.x >= map_width or neighbor.y >= map_height:
 				continue
@@ -1308,18 +2061,20 @@ func _fill_enclosed_water(source: Array[PackedByteArray]) -> Array[PackedByteArr
 	return result
 
 func _remove_one_tile_wide_land(source: Array[PackedByteArray]) -> Array[PackedByteArray]:
-	# A cross-shaped morphological opening removes width-one land corridors and
-	# peninsulas while restoring the boundary of regions at least two tiles wide.
+	# Strict eight-neighbor opening removes diagonal strings, one-cell necks, and
+	# the staircase fragments that otherwise become jagged internal water slots.
 	var eroded := _new_grid()
 	for y in range(1, map_height - 1):
 		for x in range(1, map_width - 1):
-			if (
-				source[y][x] == 1
-				and source[y][x - 1] == 1
-				and source[y][x + 1] == 1
-				and source[y - 1][x] == 1
-				and source[y + 1][x] == 1
-			):
+			if source[y][x] == 0:
+				continue
+			var has_full_neighborhood := true
+			for direction in EIGHT_DIRECTIONS:
+				var neighbor := Vector2i(x, y) + direction
+				if source[neighbor.y][neighbor.x] == 0:
+					has_full_neighborhood = false
+					break
+			if has_full_neighborhood:
 				eroded[y][x] = 1
 
 	var result := _new_grid()
@@ -1328,15 +2083,31 @@ func _remove_one_tile_wide_land(source: Array[PackedByteArray]) -> Array[PackedB
 			if eroded[y][x] == 1:
 				result[y][x] = 1
 				continue
-			if x > 0 and eroded[y][x - 1] == 1:
-				result[y][x] = 1
-			elif x + 1 < map_width and eroded[y][x + 1] == 1:
-				result[y][x] = 1
-			elif y > 0 and eroded[y - 1][x] == 1:
-				result[y][x] = 1
-			elif y + 1 < map_height and eroded[y + 1][x] == 1:
-				result[y][x] = 1
+			for direction in EIGHT_DIRECTIONS:
+				var neighbor := Vector2i(x, y) + direction
+				if neighbor.x >= 0 and neighbor.y >= 0 and neighbor.x < map_width and neighbor.y < map_height and eroded[neighbor.y][neighbor.x] == 1:
+					result[y][x] = 1
+					break
 	return result
+
+
+func _fill_small_water_notches(source: Array[PackedByteArray], passes: int) -> Array[PackedByteArray]:
+	var current: Array[PackedByteArray] = source.duplicate(true)
+	for pass_index in passes:
+		var result: Array[PackedByteArray] = current.duplicate(true)
+		for y in range(1, map_height - 1):
+			for x in range(1, map_width - 1):
+				if current[y][x] == 1:
+					continue
+				var land_neighbors := 0
+				for direction in EIGHT_DIRECTIONS:
+					var neighbor := Vector2i(x, y) + direction
+					if current[neighbor.y][neighbor.x] == 1:
+						land_neighbors += 1
+				if land_neighbors >= 5:
+					result[y][x] = 1
+		current = result
+	return current
 
 func _remove_one_tile_bands(source: Array[PackedByteArray]) -> Array[PackedByteArray]:
 	var current: Array[PackedByteArray] = source.duplicate(true)
@@ -1376,15 +2147,131 @@ func _draw() -> void:
 			-1.0,
 			false
 		)
+	_draw_external_ocean()
+	_draw_dock_bridge()
+	_draw_external_bridge()
 	_draw_coast_backings()
 	_draw_cliff_runs()
 	_draw_grass_runs()
-	_draw_dock_bridge()
+	_draw_external_terrain()
 	_draw_rocks()
 
+func _draw_external_ocean() -> void:
+	var player_cell := _world_to_cell(player.global_position) if is_instance_valid(player) else Vector2i.ZERO
+	var render_bounds := Rect2i(player_cell - Vector2i.ONE * 52, Vector2i.ONE * 105)
+	for cell_value in _external_ocean_depth:
+		var cell: Vector2i = cell_value
+		if not render_bounds.has_point(cell) or _is_in_map(cell) or is_grass(cell) or is_bridge(cell):
+			continue
+		draw_rect(
+			Rect2(Vector2(cell) * TILE_SIZE, Vector2.ONE * TILE_SIZE),
+			get_ocean_color(cell), true, -1.0, false
+		)
+
+
+func _draw_external_terrain() -> void:
+	for cell_value in _external_island_cells:
+		var cell: Vector2i = cell_value
+		if _is_in_map(cell):
+			continue
+		var origin := Vector2(cell) * TILE_SIZE
+		var boundary := (
+			not is_grass(cell + Vector2i.LEFT)
+			or not is_grass(cell + Vector2i.RIGHT)
+			or not is_grass(cell + Vector2i.UP)
+			or not is_grass(cell + Vector2i.DOWN)
+		)
+		if boundary:
+			_draw_coast_backing(origin, Vector2.ONE * TILE_SIZE)
+			if not is_grass(cell + Vector2i.DOWN) and not is_bridge(cell + Vector2i.DOWN):
+				_draw_coast_backing(origin + Vector2(0.0, TILE_SIZE), Vector2(TILE_SIZE, TILE_SIZE * 0.5))
+	for cell_value in _external_island_cells:
+		var cell: Vector2i = cell_value
+		if _is_in_map(cell) or is_grass(cell + Vector2i.DOWN) or is_bridge(cell + Vector2i.DOWN):
+			continue
+		draw_rect(
+			Rect2(Vector2(cell.x * TILE_SIZE, (cell.y + 1) * TILE_SIZE), Vector2(TILE_SIZE, TILE_SIZE * 0.5)),
+			SHADOW_COLOR, true, -1.0, false
+		)
+	for cell_value in _external_island_cells:
+		var cell: Vector2i = cell_value
+		if _is_in_map(cell):
+			continue
+		draw_rect(Rect2(Vector2(cell) * TILE_SIZE, Vector2.ONE * TILE_SIZE), GRASS_COLOR, true, -1.0, false)
+	for cell_value in _arena_tiles:
+		var cell: Vector2i = cell_value
+		_draw_arena_tile(cell)
+	_draw_arena_brickwork()
+	_draw_arena_sigil()
+
+
+func _draw_arena_tile(cell: Vector2i) -> void:
+	var origin := Vector2(cell) * TILE_SIZE
+	var has_tile_below := _arena_tiles.has(cell + Vector2i.DOWN)
+	draw_rect(Rect2(origin, Vector2.ONE * TILE_SIZE), ARENA_TILE_COLOR, true, -1.0, false)
+	if not has_tile_below:
+		draw_rect(
+			Rect2(origin + Vector2(0.0, TILE_SIZE), Vector2(TILE_SIZE, 4.0)),
+			ARENA_SIDE_COLOR, true, -1.0, false
+		)
+
+func _draw_arena_brickwork() -> void:
+	if _arena_bounds.size.x <= 0 or _arena_bounds.size.y <= 0:
+		return
+	var origin := Vector2(_arena_bounds.position) * TILE_SIZE
+	var size := Vector2(_arena_bounds.size) * TILE_SIZE
+	const BRICK_WIDTH := 48.0
+	const BRICK_HEIGHT := 24.0
+	const GROUT_WIDTH := 2.0
+	var row_count := int(size.y / BRICK_HEIGHT)
+	for row in range(1, row_count):
+		var y := origin.y + float(row) * BRICK_HEIGHT
+		draw_rect(Rect2(Vector2(origin.x, y), Vector2(size.x, GROUT_WIDTH)), ARENA_BRICK_COLOR, true, -1.0, false)
+	for row in range(row_count):
+		var seam_x := origin.x + (BRICK_WIDTH * 0.5 if row % 2 == 0 else BRICK_WIDTH)
+		var row_y := origin.y + float(row) * BRICK_HEIGHT
+		while seam_x < origin.x + size.x:
+			draw_rect(Rect2(Vector2(seam_x, row_y), Vector2(GROUT_WIDTH, BRICK_HEIGHT)), ARENA_BRICK_COLOR, true, -1.0, false)
+			seam_x += BRICK_WIDTH
+
+func _draw_arena_sigil() -> void:
+	if _arena_bounds.size.x < 7 or _arena_bounds.size.y < 7:
+		return
+	var sigil_origin := Vector2(_arena_center - Vector2i(3, 3)) * TILE_SIZE
+	var sigil_size := Vector2.ONE * TILE_SIZE * 7.0
+	# The continuous brick floor remains visible through the sigil; only its marks overlay it.
+	draw_rect(Rect2(sigil_origin + Vector2(8.0, 8.0), sigil_size - Vector2.ONE * 16.0), RUNE_LINE_COLOR, false, 5.0, false)
+	draw_rect(Rect2(sigil_origin + Vector2(64.0, 64.0), sigil_size - Vector2.ONE * 128.0), RUNE_INNER_COLOR, false, 4.0, false)
+	# Four inward-facing L glyphs make the whole motif read as a square seal.
+	var glyph_inset := 34.0
+	var glyph_span := 26.0
+	var glyph_right := sigil_origin.x + sigil_size.x - glyph_inset
+	var glyph_bottom := sigil_origin.y + sigil_size.y - glyph_inset
+	draw_rect(Rect2(Vector2(sigil_origin.x + glyph_inset, sigil_origin.y + glyph_inset), Vector2(glyph_span, 6.0)), RUNE_LINE_COLOR, true, -1.0, false)
+	draw_rect(Rect2(Vector2(sigil_origin.x + glyph_inset, sigil_origin.y + glyph_inset), Vector2(6.0, glyph_span)), RUNE_LINE_COLOR, true, -1.0, false)
+	draw_rect(Rect2(Vector2(glyph_right - glyph_span, sigil_origin.y + glyph_inset), Vector2(glyph_span, 6.0)), RUNE_LINE_COLOR, true, -1.0, false)
+	draw_rect(Rect2(Vector2(glyph_right - 6.0, sigil_origin.y + glyph_inset), Vector2(6.0, glyph_span)), RUNE_LINE_COLOR, true, -1.0, false)
+	draw_rect(Rect2(Vector2(sigil_origin.x + glyph_inset, glyph_bottom - 6.0), Vector2(glyph_span, 6.0)), RUNE_LINE_COLOR, true, -1.0, false)
+	draw_rect(Rect2(Vector2(sigil_origin.x + glyph_inset, glyph_bottom - glyph_span), Vector2(6.0, glyph_span)), RUNE_LINE_COLOR, true, -1.0, false)
+	draw_rect(Rect2(Vector2(glyph_right - glyph_span, glyph_bottom - 6.0), Vector2(glyph_span, 6.0)), RUNE_LINE_COLOR, true, -1.0, false)
+	draw_rect(Rect2(Vector2(glyph_right - 6.0, glyph_bottom - glyph_span), Vector2(6.0, glyph_span)), RUNE_LINE_COLOR, true, -1.0, false)
+	var center := sigil_origin + sigil_size * 0.5
+	draw_rect(Rect2(center - Vector2(40.0, 40.0), Vector2(80.0, 80.0)), RUNE_LINE_COLOR, false, 5.0, false)
+	draw_rect(Rect2(center - Vector2(12.0, 12.0), Vector2(24.0, 24.0)), RUNE_INNER_COLOR, true, -1.0, false)
+
+
+func _draw_external_bridge() -> void:
+	if _external_bridge_rect.size.x <= 0 or _external_bridge_rect.size.y <= 0:
+		return
+	_draw_bridge(
+		Rect2(Vector2(_external_bridge_rect.position) * TILE_SIZE, Vector2(_external_bridge_rect.size) * TILE_SIZE),
+		BRIDGE_HORIZONTAL
+	)
+
 func _draw_coast_backings() -> void:
-	for y in map_height:
-		for x in map_width:
+	var bounds := _get_active_tile_bounds()
+	for y in range(bounds.position.y, bounds.end.y):
+		for x in range(bounds.position.x, bounds.end.x):
 			var cell := Vector2i(x, y)
 			if not is_grass(cell):
 				continue
@@ -1415,42 +2302,51 @@ func _draw_coast_backing(position: Vector2, size: Vector2) -> void:
 	)
 
 func _draw_cliff_runs() -> void:
-	for y in map_height:
-		var x := 0
-		while x < map_width:
-			if not is_grass(Vector2i(x, y)) or is_grass(Vector2i(x, y + 1)):
+	var bounds := _get_active_tile_bounds()
+	for y in range(bounds.position.y, bounds.end.y):
+		var x := bounds.position.x
+		while x < bounds.end.x:
+			var cell := Vector2i(x, y)
+			if not is_grass(cell) or is_grass(cell + Vector2i.DOWN):
 				x += 1
 				continue
+			var cliff_color := get_land_side_color(cell)
 			var run_start := x
-			while x < map_width and is_grass(Vector2i(x, y)) and not is_grass(Vector2i(x, y + 1)):
+			while x < bounds.end.x:
+				var run_cell := Vector2i(x, y)
+				if not is_grass(run_cell) or is_grass(run_cell + Vector2i.DOWN) or get_land_side_color(run_cell) != cliff_color:
+					break
 				x += 1
 			draw_rect(
 				Rect2(
 					Vector2(run_start * TILE_SIZE, (y + 1) * TILE_SIZE),
 					Vector2((x - run_start) * TILE_SIZE, TILE_SIZE / 2)
 				),
-				SHADOW_COLOR,
+				cliff_color,
 				true,
 				-1.0,
 				false
 			)
 
 func _draw_grass_runs() -> void:
-	for y in map_height:
-		var x := 0
-		while x < map_width:
-			if not is_grass(Vector2i(x, y)):
+	var bounds := _get_active_tile_bounds()
+	for y in range(bounds.position.y, bounds.end.y):
+		var x := bounds.position.x
+		while x < bounds.end.x:
+			var cell := Vector2i(x, y)
+			if not is_grass(cell):
 				x += 1
 				continue
+			var land_color := get_land_top_color(cell)
 			var run_start := x
-			while x < map_width and is_grass(Vector2i(x, y)):
+			while x < bounds.end.x and is_grass(Vector2i(x, y)) and get_land_top_color(Vector2i(x, y)) == land_color:
 				x += 1
 			draw_rect(
 				Rect2(
 					Vector2(run_start * TILE_SIZE, y * TILE_SIZE),
 					Vector2((x - run_start) * TILE_SIZE, TILE_SIZE)
 				),
-				GRASS_COLOR,
+				land_color,
 				true,
 				-1.0,
 				false
@@ -1466,6 +2362,9 @@ func _draw_dock_bridge() -> void:
 	_draw_bridge(bridge_rect, BRIDGE_VERTICAL)
 
 func _draw_bridge(bridge_rect: Rect2, orientation: int) -> void:
+	# Bridge cells are omitted from the ocean mesh, so explicitly restore shallow water
+	# beneath the deck before drawing its projected shadow. Grass bridgeheads render later.
+	draw_rect(bridge_rect, OCEAN_COLOR, true, -1.0, false)
 	# The water receives the bridge shadow 32 pixels below the elevated deck.
 	draw_rect(
 		Rect2(
@@ -1481,56 +2380,91 @@ func _draw_bridge(bridge_rect: Rect2, orientation: int) -> void:
 
 	# Deck and supports are rendered by CoastEffects after animated waterlines.
 
+func get_bridge_render_data() -> Array[Dictionary]:
+	var bridges: Array[Dictionary] = []
+	if _dock_cells.size.x > 0 and _dock_cells.size.y > 0:
+		bridges.append({
+			"rect": Rect2(Vector2(_dock_cells.position) * TILE_SIZE, Vector2(_dock_cells.size) * TILE_SIZE),
+			"orientation": BRIDGE_VERTICAL,
+		})
+	if _external_bridge_rect.size.x > 0 and _external_bridge_rect.size.y > 0:
+		bridges.append({
+			"rect": Rect2(Vector2(_external_bridge_rect.position) * TILE_SIZE, Vector2(_external_bridge_rect.size) * TILE_SIZE),
+			"orientation": BRIDGE_HORIZONTAL,
+		})
+	return bridges
+
+
 func get_bridge_water_post_bases() -> Array[Rect2]:
 	var bases: Array[Rect2] = []
-	if _dock_cells.size.x <= 0 or _dock_cells.size.y <= 0:
-		return bases
-	var bridge_rect := Rect2(
-		Vector2(_dock_cells.position) * TILE_SIZE,
-		Vector2(_dock_cells.size) * TILE_SIZE
-	)
-	var row_count := maxi(1, int(bridge_rect.size.y / TILE_SIZE))
-	for row in range(2, row_count + 1):
-		var post_y := bridge_rect.position.y + row * TILE_SIZE - 16.0
-		var base_y := post_y + BRIDGE_POST_HEIGHT - BRIDGE_POST_SIZE
-		bases.append(Rect2(
-			Vector2(bridge_rect.position.x, base_y),
-			Vector2.ONE * BRIDGE_POST_SIZE
-		))
-		bases.append(Rect2(
-			Vector2(bridge_rect.end.x - BRIDGE_POST_SIZE, base_y),
-			Vector2.ONE * BRIDGE_POST_SIZE
-		))
+	for bridge_data in get_bridge_render_data():
+		var bridge_rect: Rect2 = bridge_data["rect"]
+		var orientation: int = bridge_data["orientation"]
+		if orientation == BRIDGE_VERTICAL:
+			var row_count := maxi(1, int(bridge_rect.size.y / TILE_SIZE))
+			for row in range(2, row_count + 1):
+				var post_y := bridge_rect.position.y + row * TILE_SIZE - 16.0
+				var base_y := post_y + BRIDGE_POST_HEIGHT - BRIDGE_POST_SIZE
+				bases.append(Rect2(Vector2(bridge_rect.position.x, base_y), Vector2.ONE * BRIDGE_POST_SIZE))
+				bases.append(Rect2(Vector2(bridge_rect.end.x - BRIDGE_POST_SIZE, base_y), Vector2.ONE * BRIDGE_POST_SIZE))
+		else:
+			var column_count := maxi(1, int(bridge_rect.size.x / TILE_SIZE))
+			for column in range(column_count + 1):
+				var post_x := bridge_rect.position.x + column * TILE_SIZE - BRIDGE_POST_SIZE * 0.5
+				for side in [Vector2i.UP, Vector2i.DOWN]:
+					var bridge_cell := Vector2i(floori((post_x + BRIDGE_POST_SIZE * 0.5) / TILE_SIZE), floori(bridge_rect.position.y / TILE_SIZE))
+					var water_cell: Vector2i = bridge_cell + side * (1 if side == Vector2i.UP else int(bridge_rect.size.y / TILE_SIZE))
+					if is_grass(water_cell):
+						continue
+					var anchor_y := bridge_rect.position.y if side == Vector2i.UP else bridge_rect.end.y
+					bases.append(Rect2(Vector2(post_x, anchor_y + 24.0), Vector2.ONE * BRIDGE_POST_SIZE))
 	return bases
 
 func get_dock_bridge_rect() -> Rect2:
 	if _dock_cells.size.x <= 0 or _dock_cells.size.y <= 0:
 		return Rect2()
-	return Rect2(
-		Vector2(_dock_cells.position) * TILE_SIZE,
-		Vector2(_dock_cells.size) * TILE_SIZE
+	return Rect2(Vector2(_dock_cells.position) * TILE_SIZE, Vector2(_dock_cells.size) * TILE_SIZE)
+
+
+func get_bridge_post_rects_behind_deck() -> Array[Rect2]:
+	if _external_bridge_rect.size.x <= 0 or _external_bridge_rect.size.y <= 0:
+		return []
+	var bridge_rect := Rect2(
+		Vector2(_external_bridge_rect.position) * TILE_SIZE,
+		Vector2(_external_bridge_rect.size) * TILE_SIZE
 	)
+	return _get_horizontal_bridge_post_rects(bridge_rect, Vector2i.UP)
+
 
 func get_bridge_post_rects() -> Array[Rect2]:
 	var posts: Array[Rect2] = []
-	if _dock_cells.size.x <= 0 or _dock_cells.size.y <= 0:
-		return posts
-	var bridge_rect := Rect2(
-		Vector2(_dock_cells.position) * TILE_SIZE,
-		Vector2(_dock_cells.size) * TILE_SIZE
-	)
-	var row_count := maxi(1, int(bridge_rect.size.y / TILE_SIZE))
-	for row in range(row_count + 1):
-		var post_height := BRIDGE_POST_HEIGHT if row >= 2 else 16.0
-		var post_y := bridge_rect.position.y + row * TILE_SIZE - 16.0
-		posts.append(Rect2(
-			Vector2(bridge_rect.position.x, post_y),
-			Vector2(BRIDGE_POST_SIZE, post_height)
-		))
-		posts.append(Rect2(
-			Vector2(bridge_rect.end.x - BRIDGE_POST_SIZE, post_y),
-			Vector2(BRIDGE_POST_SIZE, post_height)
-		))
+	for bridge_data in get_bridge_render_data():
+		var bridge_rect: Rect2 = bridge_data["rect"]
+		var orientation: int = bridge_data["orientation"]
+		if orientation == BRIDGE_VERTICAL:
+			var row_count := maxi(1, int(bridge_rect.size.y / TILE_SIZE))
+			for row in range(row_count + 1):
+				var post_height := BRIDGE_POST_HEIGHT if row >= 2 else 16.0
+				var post_y := bridge_rect.position.y + row * TILE_SIZE - 16.0
+				posts.append(Rect2(Vector2(bridge_rect.position.x, post_y), Vector2(BRIDGE_POST_SIZE, post_height)))
+				posts.append(Rect2(Vector2(bridge_rect.end.x - BRIDGE_POST_SIZE, post_y), Vector2(BRIDGE_POST_SIZE, post_height)))
+		else:
+			posts.append_array(_get_horizontal_bridge_post_rects(bridge_rect, Vector2i.DOWN))
+	return posts
+
+
+func _get_horizontal_bridge_post_rects(bridge_rect: Rect2, side: Vector2i) -> Array[Rect2]:
+	var posts: Array[Rect2] = []
+	var column_count := maxi(1, int(bridge_rect.size.x / TILE_SIZE))
+	var top_bridge_y := floori(bridge_rect.position.y / TILE_SIZE)
+	var bottom_bridge_y := top_bridge_y + int(bridge_rect.size.y / TILE_SIZE) - 1
+	for column in range(column_count + 1):
+		var post_x := bridge_rect.position.x + column * TILE_SIZE - BRIDGE_POST_SIZE * 0.5
+		var bridge_x := floori((post_x + BRIDGE_POST_SIZE * 0.5) / TILE_SIZE)
+		var adjacent_cell := Vector2i(bridge_x, top_bridge_y - 1 if side == Vector2i.UP else bottom_bridge_y + 1)
+		var anchor_y := bridge_rect.position.y if side == Vector2i.UP else bridge_rect.end.y
+		var post_height := 16.0 if is_grass(adjacent_cell) else BRIDGE_POST_HEIGHT
+		posts.append(Rect2(Vector2(post_x, anchor_y - 16.0), Vector2(BRIDGE_POST_SIZE, post_height)))
 	return posts
 
 func _draw_bridge_posts(	bridge_rect: Rect2,
@@ -1663,7 +2597,7 @@ func _draw_horizontal_bridge_planks(bridge_rect: Rect2) -> void:
 			)
 		if top_width > 0:
 			draw_rect(
-				Rect2(plank_position, Vector2(top_width, bridge_rect.size.y)),
+				Rect2(plank_position, Vector2(top_width, bridge_rect.size.y - bridge_plank_side_height)),
 				BRIDGE_TOP_COLOR,
 				true,
 				-1.0,
@@ -1671,31 +2605,55 @@ func _draw_horizontal_bridge_planks(bridge_rect: Rect2) -> void:
 			)
 
 func _rebuild_terrain_collision() -> void:
-	for child in terrain_collision.get_children():
-		child.free()
-
-	for y in map_height:
-		var x := 0
-		while x < map_width:
-			if is_walkable(Vector2i(x, y)):
+	_terrain_block_rects.clear()
+	var bounds := _get_active_tile_bounds()
+	for y in range(bounds.position.y, bounds.end.y):
+		var x := bounds.position.x
+		while x < bounds.end.x:
+			var cell := Vector2i(x, y)
+			if not _is_solid_terrain_cell(cell):
 				x += 1
 				continue
 			var run_start := x
-			while x < map_width and not is_walkable(Vector2i(x, y)):
+			while x < bounds.end.x and _is_solid_terrain_cell(Vector2i(x, y)):
 				x += 1
 			var run_length := x - run_start
 			_add_terrain_block(
 				Vector2((run_start + run_length * 0.5) * TILE_SIZE, (y + 0.5) * TILE_SIZE),
 				Vector2(run_length * TILE_SIZE, TILE_SIZE)
 			)
+	_apply_terrain_collision_blocks()
+
+
+func _is_solid_terrain_cell(cell: Vector2i) -> bool:
+	return is_rock(cell) or is_brazier(cell)
+func _get_external_structure_bounds() -> Rect2i:
+	var bounds := _external_bridge_rect
+	for cell_value in _external_island_cells:
+		var cell: Vector2i = cell_value
+		bounds = bounds.merge(Rect2i(cell, Vector2i.ONE))
+	return bounds
 
 func _add_terrain_block(center: Vector2, size: Vector2) -> void:
-	var shape := RectangleShape2D.new()
-	shape.size = size
-	var collision := CollisionShape2D.new()
-	collision.position = center
-	collision.shape = shape
-	terrain_collision.add_child(collision)
+	_terrain_block_rects.append(Rect2(center - size * 0.5, size))
+
+
+func _apply_terrain_collision_blocks() -> void:
+	for index in range(_terrain_block_rects.size()):
+		var collision: CollisionShape2D
+		if index < _terrain_collision_pool.size():
+			collision = _terrain_collision_pool[index]
+		else:
+			collision = CollisionShape2D.new()
+			collision.shape = RectangleShape2D.new()
+			terrain_collision.add_child(collision)
+			_terrain_collision_pool.append(collision)
+		var rectangle := collision.shape as RectangleShape2D
+		rectangle.size = _terrain_block_rects[index].size
+		collision.position = _terrain_block_rects[index].get_center()
+		collision.disabled = false
+	for index in range(_terrain_block_rects.size(), _terrain_collision_pool.size()):
+		_terrain_collision_pool[index].disabled = true
 
 func _place_dock_braziers() -> void:
 	for brazier in _braziers:
@@ -1712,60 +2670,130 @@ func _place_dock_braziers() -> void:
 		Vector2i(_dock_cells.end.x, shore_y),
 	]
 	for cell in cells:
-		if not is_grass(cell) or is_bridge(cell):
-			continue
-		var brazier := BRAZIER_SCENE.instantiate() as Node2D
-		brazier.position = (Vector2(cell) + Vector2.ONE * 0.5) * TILE_SIZE
-		add_child(brazier, true)
-		_braziers.append(brazier)
-		_brazier_cells.append(cell)
+		_spawn_brazier_at(cell)
+	if _external_mainland_landing.x >= 0:
+		for side_cell in [
+			_external_mainland_landing + Vector2i(0, -2),
+			_external_mainland_landing + Vector2i(0, 2),
+		]:
+			_spawn_brazier_at(side_cell)
+	if not _arena_tiles.is_empty():
+		var arena_cells: Array[Vector2i] = []
+		for arena_cell_value in _arena_tiles:
+			var arena_cell: Vector2i = arena_cell_value
+			arena_cells.append(arena_cell)
+		var arena_bounds := Rect2i(arena_cells[0], Vector2i.ONE)
+		for arena_cell in arena_cells:
+			arena_bounds = arena_bounds.merge(Rect2i(arena_cell, Vector2i.ONE))
+		for corner in [
+			arena_bounds.position,
+			Vector2i(arena_bounds.end.x - 1, arena_bounds.position.y),
+			Vector2i(arena_bounds.position.x, arena_bounds.end.y - 1),
+			arena_bounds.end - Vector2i.ONE,
+		]:
+			_spawn_brazier_at(corner)
+
+
+func _spawn_brazier_at(cell: Vector2i) -> void:
+	if not is_grass(cell) or is_bridge(cell) or is_brazier(cell):
+		return
+	var brazier := BRAZIER_SCENE.instantiate() as Node2D
+	brazier.position = (Vector2(cell) + Vector2.ONE * 0.5) * TILE_SIZE
+	add_child(brazier, true)
+	_braziers.append(brazier)
+	_brazier_cells.append(cell)
 func _build_rocks(seed_value: int) -> void:
 	_rock_tiles = _new_grid()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value ^ 0x4F6C5A91
-	var candidates: Array[Vector2i] = []
+	var buckets: Dictionary = {}
+	const BUCKET_SIZE := 12
 	for y in range(2, map_height - 2):
 		for x in range(2, map_width - 2):
 			var cell := Vector2i(x, y)
-			if _can_place_rock(cell):
-				candidates.append(cell)
-	for index in range(candidates.size() - 1, 0, -1):
+			if not _can_place_rock(cell):
+				continue
+			var bucket := Vector2i(int(x / BUCKET_SIZE), int(y / BUCKET_SIZE))
+			if not buckets.has(bucket):
+				buckets[bucket] = [] as Array[Vector2i]
+			var cells: Array[Vector2i] = buckets[bucket]
+			cells.append(cell)
+
+	var bucket_keys: Array[Vector2i] = []
+	for key_value in buckets.keys():
+		bucket_keys.append(key_value as Vector2i)
+	for index in range(bucket_keys.size() - 1, 0, -1):
 		var swap_index: int = rng.randi_range(0, index)
-		var temporary: Vector2i = candidates[index]
-		candidates[index] = candidates[swap_index]
-		candidates[swap_index] = temporary
+		var temporary: Vector2i = bucket_keys[index]
+		bucket_keys[index] = bucket_keys[swap_index]
+		bucket_keys[swap_index] = temporary
+
 	var origins: Array[Vector2i] = []
-	for origin in candidates:
-		if origins.size() >= rock_cluster_count:
+	for bucket in bucket_keys:
+		if origins.size() >= _get_scaled_rock_cluster_count():
 			break
-		var spacing_ok := true
-		for other in origins:
-			if origin.distance_squared_to(other) < 36.0:
-				spacing_ok = false
+		var cells: Array[Vector2i] = buckets[bucket]
+		var origin: Vector2i = cells[rng.randi_range(0, cells.size() - 1)]
+		if _try_place_rock_cluster(origin, origins, rng):
+			origins.append(origin)
+
+	# Some buckets are water-heavy. Fill any remaining quota from all legal cells.
+	if origins.size() < _get_scaled_rock_cluster_count():
+		var fallback_cells: Array[Vector2i] = []
+		for bucket in bucket_keys:
+			var cells: Array[Vector2i] = buckets[bucket]
+			fallback_cells.append_array(cells)
+		for index in range(fallback_cells.size() - 1, 0, -1):
+			var swap_index: int = rng.randi_range(0, index)
+			var temporary: Vector2i = fallback_cells[index]
+			fallback_cells[index] = fallback_cells[swap_index]
+			fallback_cells[swap_index] = temporary
+		for origin in fallback_cells:
+			if origins.size() >= _get_scaled_rock_cluster_count():
 				break
-		if not spacing_ok:
-			continue
-		var offsets: Array[Vector2i] = [Vector2i.ZERO, Vector2i.RIGHT, Vector2i.DOWN, Vector2i(1, 1)]
-		var count: int = rng.randi_range(1, 4)
-		var cluster: Array[Vector2i] = []
-		for index in range(count):
-			var cell := origin + offsets[index]
-			if _can_place_rock(cell):
-				cluster.append(cell)
-		if cluster.is_empty():
-			continue
-		for cell in cluster:
-			_rock_tiles[cell.y][cell.x] = 1
-		origins.append(origin)
+			if _try_place_rock_cluster(origin, origins, rng):
+				origins.append(origin)
+
+
+func _try_place_rock_cluster(
+	origin: Vector2i,
+	origins: Array[Vector2i],
+	rng: RandomNumberGenerator
+) -> bool:
+	for other in origins:
+		if origin.distance_squared_to(other) < 100.0:
+			return false
+	var offsets: Array[Vector2i] = [Vector2i.ZERO, Vector2i.RIGHT, Vector2i.DOWN, Vector2i(1, 1)]
+	var count: int = rng.randi_range(1, 4)
+	var cluster: Array[Vector2i] = []
+	for index in range(count):
+		var cell := origin + offsets[index]
+		if _can_place_rock(cell):
+			cluster.append(cell)
+	if cluster.is_empty():
+		return false
+	for cell in cluster:
+		_rock_tiles[cell.y][cell.x] = 1
+	return true
+
+func _get_scaled_rock_cluster_count() -> int:
+	# Keep the same visual density as the original 50-by-50 mainland.
+	var area_scale := float(map_width * map_height) / 2500.0
+	return maxi(rock_cluster_count, roundi(float(rock_cluster_count) * area_scale))
 
 func _can_place_rock(cell: Vector2i) -> bool:
-	if not _is_in_map(cell) or not is_grass(cell) or is_bridge(cell) or is_rock(cell):
+	if not _is_in_map(cell) or not is_grass(cell) or is_desert(cell) or is_bridge(cell) or is_rock(cell):
 		return false
 	if _dock_cells.size.x > 0 and _dock_cells.grow(2).has_point(cell):
 		return false
-	for direction in CARDINAL_DIRECTIONS:
-		if not is_grass(cell + direction):
-			return false
+	# Every one of the eight neighboring cells must stay on land, preserving coast paths.
+	for y_offset in range(-1, 2):
+		for x_offset in range(-1, 2):
+			if x_offset == 0 and y_offset == 0:
+				continue
+			var neighbor := cell + Vector2i(x_offset, y_offset)
+			if not _is_in_map(neighbor) or not is_grass(neighbor) or is_desert(neighbor):
+				return false
 	return true
 
 
@@ -1785,8 +2813,9 @@ func _rebuild_rock_collision() -> void:
 
 
 func _draw_rocks() -> void:
-	for y in map_height:
-		for x in map_width:
+	var bounds := _get_active_tile_bounds()
+	for y in range(bounds.position.y, bounds.end.y):
+		for x in range(bounds.position.x, bounds.end.x):
 			var cell := Vector2i(x, y)
 			if not is_rock(cell):
 				continue
@@ -1796,8 +2825,23 @@ func _draw_rocks() -> void:
 			draw_rect(Rect2(origin, Vector2(TILE_SIZE, top_height)), ROCK_TOP_COLOR, true, -1.0, false)
 			if not has_rock_below:
 				draw_rect(Rect2(origin + Vector2(0.0, top_height), Vector2(TILE_SIZE, TILE_SIZE - top_height)), ROCK_SIDE_COLOR, true, -1.0, false)
+			_draw_rock_moss(origin, cell, top_height, has_rock_below)
 			_draw_rock_fragments(origin, cell)
 
+
+func _draw_rock_moss(origin: Vector2, cell: Vector2i, top_height: float, has_rock_below: bool) -> void:
+	var seed_hash := absi((cell.x * 83492791) ^ (cell.y * 2971215073) ^ world_seed)
+	if seed_hash % 5 == 0:
+		return
+	var patch_x := 7.0 + float(seed_hash % 24)
+	var patch_y := 7.0 + float((seed_hash >> 5) % 20)
+	draw_rect(Rect2(origin + Vector2(patch_x, patch_y), Vector2(16.0, 6.0)), MOSS_COLOR, true, -1.0, false)
+	if seed_hash % 2 == 0:
+		draw_rect(Rect2(origin + Vector2(patch_x + 9.0, patch_y + 5.0), Vector2(7.0, 6.0)), MOSS_COLOR, true, -1.0, false)
+	if not has_rock_below and seed_hash % 3 != 0:
+		var vine_x := 12.0 + float((seed_hash >> 11) % 36)
+		var vine_length := 8.0 + float((seed_hash >> 17) % 13)
+		draw_rect(Rect2(origin + Vector2(vine_x, top_height - 2.0), Vector2(3.0, vine_length)), VINE_COLOR, true, -1.0, false)
 
 func _draw_rock_fragments(origin: Vector2, cell: Vector2i) -> void:
 	if not is_rock(cell + Vector2i.DOWN):

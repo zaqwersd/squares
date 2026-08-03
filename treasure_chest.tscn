@@ -1,0 +1,51 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://treasure_chest.gd" id="1_chest"]
+[ext_resource type="Script" path="res://chest_piece.gd" id="2_piece"]
+[ext_resource type="Script" path="res://pickup_hint.gd" id="3_hint"]
+[ext_resource type="AudioStream" path="res://soundeffects/chest_open.ogg" id="4_open_sound"]
+
+[sub_resource type="CircleShape2D" id="1_shape"]
+radius = 30.0
+
+[node name="TreasureChest" type="Area2D"]
+z_index = 2
+collision_layer = 0
+collision_mask = 4
+monitoring = true
+monitorable = false
+script = ExtResource("1_chest")
+
+[node name="GroundShadow" type="Polygon2D" parent="."]
+z_index = 0
+position = Vector2(0, 35)
+color = Color(0, 0, 0, 0.24)
+polygon = PackedVector2Array(-24, -3, 24, -3, 24, 3, -24, 3)
+
+[node name="InnerBackdrop" type="Node2D" parent="."]
+z_index = 1
+script = ExtResource("2_piece")
+piece = 0
+
+[node name="Base" type="Node2D" parent="."]
+z_index = 2
+script = ExtResource("2_piece")
+piece = 1
+
+[node name="LidPivot" type="Node2D" parent="."]
+z_index = 3
+
+[node name="Lid" type="Node2D" parent="LidPivot"]
+script = ExtResource("2_piece")
+piece = 2
+
+[node name="PickupHint" type="Node2D" parent="."]
+z_index = 20
+position = Vector2(48, 0)
+script = ExtResource("3_hint")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("1_shape")
+[node name="OpenSound" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("4_open_sound")
+volume_db = 0.0

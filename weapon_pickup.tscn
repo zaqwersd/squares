@@ -1,4 +1,4 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://weapon_pickup.gd" id="1_pickup"]
 [ext_resource type="Script" path="res://bow_weapon.gd" id="2_bow"]
@@ -6,6 +6,8 @@
 [ext_resource type="Script" path="res://pickup_hint.gd" id="3_hint"]
 [ext_resource type="Script" path="res://rock_weapon.gd" id="4_rock"]
 [ext_resource type="Script" path="res://sword_weapon.gd" id="5_sword"]
+[ext_resource type="Script" path="res://greatsword_weapon.gd" id="7_greatsword"]
+[ext_resource type="Script" path="res://spear_weapon.gd" id="8_spear"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_pickup"]
 radius = 28.0
@@ -44,8 +46,19 @@ z_index = 1
 visible = false
 script = ExtResource("5_sword")
 
+[node name="GreatswordDisplay" type="Node2D" parent="."]
+z_index = 1
+visible = false
+script = ExtResource("7_greatsword")
+[node name="SpearDisplay" type="Node2D" parent="."]
+z_index = 1
+visible = false
+rotation = -0.18
+script = ExtResource("8_spear")
+border_color = Color(0.545098, 0.117647, 0.176471, 1)
+
 [node name="PickupHint" type="Node2D" parent="."]
-z_index = 2
+z_index = 20
 position = Vector2(48, 0)
 script = ExtResource("3_hint")
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]

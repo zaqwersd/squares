@@ -1,9 +1,11 @@
-class_name SwordsmanEnemy
+﻿class_name SwordsmanEnemy
 extends CharacterBody2D
 
 signal defeated
 
 const HIT_EFFECT_SCENE := preload("res://hit_effect.gd")
+const SWORD_ATTACK := preload("res://sword_attack.gd")
+const MOVEMENT_ESCAPE := preload("res://enemy_movement_escape.gd")
 const DAMAGE_NUMBER_SCENE := preload("res://damage_number.tscn")
 const WEAPON_PICKUP_SCENE := preload("res://weapon_pickup.tscn")
 const MOVE_SPEED := 160.0
@@ -11,7 +13,7 @@ const ATTACK_INNER_RADIUS := SwordWeapon.MOUNT_OFFSET
 const ATTACK_OUTER_RADIUS := SwordWeapon.MOUNT_OFFSET + SwordWeapon.BLADE_LENGTH
 const ATTACK_DAMAGE := 8
 const ATTACK_COOLDOWN := 0.85
-const WINDUP_DURATION := 0.25
+const WINDUP_DURATION := 0.3
 const SWING_DURATION := 0.2
 const DAMAGE_MOMENT := 0.1
 const OBSTACLE_COOLDOWN := 0.3
@@ -36,6 +38,8 @@ var _sword_rebound_tween: Tween
 var _tangent_sign := 1.0
 var _blocked_direction := Vector2.ZERO
 var _blocked_direction_remaining := 0.0
+var _sword_attack = SWORD_ATTACK.new(WINDUP_DURATION, SWING_DURATION, ATTACK_COOLDOWN)
+var _movement_escape = MOVEMENT_ESCAPE.new()
 
 
 func configure(new_target: Node2D, spawn_seed: int) -> void:
@@ -46,6 +50,7 @@ func configure(new_target: Node2D, spawn_seed: int) -> void:
 	health = max_health
 	_attack_cooldown = rng.randf_range(0.2, 0.8)
 	_tangent_sign = -1.0 if rng.randi_range(0, 1) == 0 else 1.0
+	_movement_escape.configure(spawn_seed ^ 0xB31)
 
 
 func _ready() -> void:
@@ -55,6 +60,9 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	var island_map := get_parent() as IslandMap
+	if island_map != null:
+		target = island_map.get_enemy_target(global_position, target)
 	if _dead or not is_instance_valid(target):
 		velocity = Vector2.ZERO
 		return
@@ -66,7 +74,8 @@ func _physics_process(delta: float) -> void:
 	visual.flip_h = aim_direction.x > 0.0
 	if not _sword_rebounding:
 		sword_weapon.set_aim_direction(aim_direction)
-	_attack_cooldown = maxf(0.0, _attack_cooldown - delta)
+	_sword_attack.tick(delta)
+	_attack_cooldown = _sword_attack.cooldown_remaining
 
 	if _sword_rebounding:
 		velocity = Vector2.ZERO
@@ -75,7 +84,6 @@ func _physics_process(delta: float) -> void:
 		velocity = Vector2.ZERO
 		_update_swing(delta)
 		return
-	var island_map := get_parent() as IslandMap
 	var has_clear_line := island_map == null or island_map.has_clear_archer_line_of_fire(global_position, target.global_position, self)
 	var can_attack := (
 		to_target.length() >= ATTACK_INNER_RADIUS
@@ -89,28 +97,22 @@ func _physics_process(delta: float) -> void:
 		if not has_clear_line:
 			var tangent := aim_direction.orthogonal() * _tangent_sign
 			navigation_direction = navigation_direction.slerp(tangent, 0.62).normalized()
-		_blocked_direction_remaining = maxf(0.0, _blocked_direction_remaining - delta)
-		var recovering := _blocked_direction_remaining > 0.0
-		if recovering:
-			navigation_direction = _blocked_direction
-		elif island_map != null:
+		if island_map != null and not _movement_escape.is_escaping():
 			navigation_direction = island_map.get_obstacle_sliding_direction(global_position, navigation_direction, self)
+		navigation_direction = _movement_escape.choose_direction(self, navigation_direction, MOVE_SPEED, delta)
 		velocity = navigation_direction * MOVE_SPEED
 		move_and_slide()
-		if _blocked_direction_remaining <= 0.0 and get_real_velocity().length() < MOVE_SPEED * 0.2:
-			_blocked_direction = island_map.get_unblocked_movement_direction(self, navigation_direction, MOVE_SPEED, delta) if island_map != null else navigation_direction.orthogonal()
-			_tangent_sign *= -1.0
-			_blocked_direction_remaining = 0.75
-		else:
-			_blocked_direction_remaining = 0.0
+		_movement_escape.report_motion(self, navigation_direction, MOVE_SPEED, delta)
 		return
 	if _attack_cooldown <= 0.0:
 		_begin_swing(aim_direction)
 
 
 func _begin_swing(aim_direction: Vector2) -> void:
+	if not _sword_attack.begin():
+		return
 	_swinging = true
-	_attack_cooldown = ATTACK_COOLDOWN
+	_attack_cooldown = _sword_attack.cooldown_remaining
 	_windup_remaining = WINDUP_DURATION
 	_swing_time = 0.0
 	_damage_applied = false
@@ -120,31 +122,29 @@ func _begin_swing(aim_direction: Vector2) -> void:
 
 
 func _update_swing(delta: float) -> void:
-	var swing_delta := delta
-	if _windup_remaining > 0.0:
-		var used_windup := minf(swing_delta, _windup_remaining)
-		_windup_remaining -= used_windup
-		swing_delta -= used_windup
-		var windup_progress := smoothstep(0.0, 1.0, 1.0 - _windup_remaining / WINDUP_DURATION)
-		sword_weapon.set_windup_direction(_swing_direction, windup_progress)
-		if _windup_remaining > 0.0:
-			return
+	var step: Dictionary = _sword_attack.advance(delta)
+	var phase := String(step["phase"])
+	if phase == "windup":
+		_windup_remaining = _sword_attack.windup_remaining
+		sword_weapon.set_windup_direction(_swing_direction, float(step["windup_progress"]))
+		return
+	if phase != "swing":
+		return
+	if bool(step["started_swing"]):
 		sword_weapon.set_swing_direction(_swing_direction, 0.0)
 		slash_effect.begin_swing(_swing_direction)
-	if swing_delta <= 0.0:
-		return
-	var previous_progress := _swing_time / SWING_DURATION
-	_swing_time = minf(SWING_DURATION, _swing_time + swing_delta)
-	var current_progress := _swing_time / SWING_DURATION
+	var previous_progress := float(step["previous_progress"])
+	var current_progress := float(step["progress"])
+	_windup_remaining = 0.0
+	_swing_time = _sword_attack.swing_elapsed
 	sword_weapon.set_swing_direction(_swing_direction, current_progress)
 	slash_effect.set_swing_progress(current_progress, _swing_direction)
 	if not _damage_applied and _blade_touches_target(previous_progress, current_progress):
 		_damage_applied = true
 		target.take_damage(ATTACK_DAMAGE)
-	if _swing_time >= SWING_DURATION:
+	if bool(step["finished"]):
+		slash_effect.hide_slash()
 		_swinging = false
-
-
 func _interrupt_sword_on_obstacle() -> void:
 	if _sword_rebounding:
 		return
@@ -187,18 +187,35 @@ func _blade_touches_target(from_progress: float, to_progress: float) -> bool:
 func show_projectile_hit(hit_color: Color) -> void:
 	if _dead:
 		return
+	_flash_brightness()
 	var effect := HIT_EFFECT_SCENE.new() as Node2D
 	effect.call("configure", hit_color)
 	get_parent().add_child(effect)
 	effect.global_position = global_position
 
 
+func _flash_brightness() -> void:
+	visual.modulate = Color(2.5, 2.5, 2.5, 1.0)
+	var tween := create_tween()
+	tween.tween_property(visual, "modulate", LOW_HEALTH_TINT.lerp(Color.WHITE, clampf(float(health) / float(max_health), 0.0, 1.0)), 0.075)
 func take_damage(amount: int) -> void:
 	if _dead:
 		return
 	_show_damage_number(amount)
 	health = maxi(0, health - amount)
 	_update_health_tint()
+	_flash_brightness()
+	if health <= 0:
+		_die()
+
+
+func take_true_damage(amount: int) -> void:
+	if _dead:
+		return
+	_show_damage_number(amount)
+	health = maxi(0, health - amount)
+	_update_health_tint()
+	_flash_brightness()
 	if health <= 0:
 		_die()
 

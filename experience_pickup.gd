@@ -4,18 +4,22 @@ extends Area2D
 const OUTLINE_COLOR := Color.BLACK
 const BLUE_COLOR := Color("#36A8F4")
 const GREEN_COLOR := Color("#45D99A")
-const PICKUP_SIZE := 8.0
+const PICKUP_SIZE := 9.6
+const GOLD_COLOR := Color("#FFD34D")
+const ORANGE_COLOR := Color("#FF9F38")
 
 var experience_value := 1
 var _velocity := Vector2.ZERO
 var _pulse_time := 0.0
 var _attraction_velocity := Vector2.ZERO
 var _burst_remaining := 0.18
+var _redraw_elapsed := 0.0
 
 
 func configure(value: int, launch_velocity: Vector2) -> void:
 	experience_value = maxi(1, value)
-	scale = Vector2.ONE * (2.0 if experience_value >= 5 else 1.0)
+	# 1 and 10 share the small size; 5 and 50 share the large size.
+	scale = Vector2.ONE * (2.0 if experience_value == 5 or experience_value >= 50 else 1.0)
 	_velocity = launch_velocity
 	_burst_remaining = 0.18
 
@@ -27,6 +31,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	_pulse_time += delta
+	_redraw_elapsed += delta
 	var island_map := get_parent() as IslandMap
 	var player := island_map.player if island_map != null else null
 	_burst_remaining = maxf(0.0, _burst_remaining - delta)
@@ -43,12 +48,14 @@ func _process(delta: float) -> void:
 	position += (_velocity + _attraction_velocity) * delta
 	_velocity = _velocity.move_toward(Vector2.ZERO, 900.0 * delta)
 	_attraction_velocity = _attraction_velocity.move_toward(Vector2.ZERO, 170.0 * delta)
-	queue_redraw()
+	if _redraw_elapsed >= 1.0 / 12.0:
+		_redraw_elapsed = 0.0
+		queue_redraw()
 
 
 func _draw() -> void:
 	var pulse := 0.5 + sin(_pulse_time * TAU * 1.5) * 0.5
-	var inner_color := BLUE_COLOR.lerp(GREEN_COLOR, pulse)
+	var inner_color := (GOLD_COLOR.lerp(ORANGE_COLOR, pulse) if experience_value >= 10 else BLUE_COLOR.lerp(GREEN_COLOR, pulse))
 	var outer_rect := Rect2(Vector2.ONE * -PICKUP_SIZE * 0.5, Vector2.ONE * PICKUP_SIZE)
 	draw_rect(outer_rect, OUTLINE_COLOR, true)
 	draw_rect(outer_rect.grow(-2.0), inner_color, true)

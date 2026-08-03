@@ -30,7 +30,10 @@ func _draw() -> void:
 	draw_rect(Rect2(inner.position, Vector2(inner.size.x * ratio, inner.size.y)), EXPERIENCE_COLOR, true)
 	var label := "LV.%d" % player.level
 	var font := game_font if game_font != null else ThemeDB.fallback_font
-	draw_string(font, Vector2(0.0, 14.0), label, HORIZONTAL_ALIGNMENT_LEFT, 50.0, 13, TEXT_COLOR)
+	var label_position := Vector2(0.0, 14.0)
+	for offset in [Vector2(-1, 0), Vector2(1, 0), Vector2(0, -1), Vector2(0, 1), Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)]:
+		draw_string(font, label_position + offset, label, HORIZONTAL_ALIGNMENT_LEFT, 50.0, 13, BORDER_COLOR)
+	draw_string(font, label_position, label, HORIZONTAL_ALIGNMENT_LEFT, 50.0, 13, TEXT_COLOR)
 
 
 func _on_experience_changed(_level: int, _experience: int, _required: int) -> void:

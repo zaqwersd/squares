@@ -7,7 +7,6 @@ const BORDER_WIDTH := 2.0
 const ENEMY_BORDER_COLOR := Color("#8B1E2D")
 const PLAYER_BORDER_COLOR := Color("#1A64B5FF")
 const FILL_COLOR := Color.WHITE
-const DIVINE_TRAIL_SCRIPT := preload("res://divine_arrow_trail.gd")
 
 var direction := Vector2.RIGHT
 var shooter: CollisionObject2D
@@ -18,7 +17,6 @@ var friendly := false
 var divine := false
 var _travelled := 0.0
 var _spent := false
-var _trail_elapsed := 0.0
 
 
 func configure(
@@ -56,22 +54,11 @@ func _physics_process(delta: float) -> void:
 		return
 	if _sweep_for_hit(distance):
 		return
-	if divine:
-		_trail_elapsed += delta
-		if _trail_elapsed >= 0.045:
-			_trail_elapsed = 0.0
-			_spawn_divine_trail()
 	global_position += direction * distance
 	_travelled += distance
 	if _travelled >= max_range:
 		queue_free()
 
-
-func _spawn_divine_trail() -> void:
-	var trail := DIVINE_TRAIL_SCRIPT.new() as Node2D
-	get_parent().add_child(trail)
-	trail.global_position = global_position
-	trail.configure(direction)
 
 func _sweep_for_hit(distance: float) -> bool:
 	var query := PhysicsRayQueryParameters2D.create(
@@ -94,6 +81,11 @@ func _sweep_for_hit(distance: float) -> bool:
 
 
 func _draw() -> void:
+	if divine:
+		# The divine arrow owns one smooth, moving ribbon rather than dropping trail particles.
+		var tail_points := PackedVector2Array([Vector2(-72.0, -3.0), Vector2(-72.0, 3.0), Vector2(2.0, 6.0), Vector2(2.0, -6.0)])
+		var tail_colors := PackedColorArray([Color(1.0, 1.0, 1.0, 0.0), Color(1.0, 1.0, 1.0, 0.0), Color(1.0, 1.0, 1.0, 0.7), Color(1.0, 1.0, 1.0, 0.7)])
+		draw_polygon(tail_points, tail_colors)
 	var border_color := PLAYER_BORDER_COLOR if friendly else ENEMY_BORDER_COLOR
 	var fill_color := FILL_COLOR
 	draw_rect(Rect2(0.0, -ARROW_WIDTH * 0.5, ARROW_LENGTH, ARROW_WIDTH), border_color, true, -1.0, false)

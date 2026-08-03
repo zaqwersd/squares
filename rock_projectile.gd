@@ -25,6 +25,7 @@ func configure(new_direction: Vector2, new_shooter: Node, new_damage: int) -> vo
 
 
 func _ready() -> void:
+	add_to_group("rock_projectiles")
 	body_entered.connect(_on_body_entered)
 	area_entered.connect(_on_area_entered)
 	queue_redraw()

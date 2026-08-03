@@ -14,17 +14,27 @@ const GAMEPAD_COLORS := {
 var _gamepad_active := false
 var _pulse_time := 0.0
 var _font: Font
+var _keyboard_label := "E"
+var _gamepad_label := "A"
+var _action_label := ""
 
 
 func _ready() -> void:
 	var font_path := "res://fonts/AiDianFengYaHei" + String.chr(0xFF08) + "ShangYongMianFei" + String.chr(0xFF09) + "-2.ttf"
 	_font = ResourceLoader.load(font_path) as Font
+	_action_label = String.chr(0x62FE) + String.chr(0x53D6)
 
 
 func _process(delta: float) -> void:
 	_pulse_time += delta
 	queue_redraw()
 
+
+func set_prompt(keyboard_label: String, gamepad_label: String, action_label: String) -> void:
+	_keyboard_label = keyboard_label
+	_gamepad_label = gamepad_label
+	_action_label = action_label
+	queue_redraw()
 
 func set_gamepad_active(value: bool) -> void:
 	if _gamepad_active == value:
@@ -34,8 +44,8 @@ func set_gamepad_active(value: bool) -> void:
 
 
 func _draw() -> void:
-	var key_label := "A" if _gamepad_active else "E"
-	var action_label := "拾取"
+	var key_label := _gamepad_label if _gamepad_active else _keyboard_label
+	var action_label := _action_label
 	var font := _font if _font != null else ThemeDB.fallback_font
 	var font_size := 15
 	var key_size := font.get_string_size(key_label, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)

@@ -5,31 +5,35 @@
 [ext_resource type="Script" uid="uid://c0k3pc17pg1x6" path="res://minimap.gd" id="3_minimap"]
 [ext_resource type="Script" uid="uid://blm7tfra5ejud" path="res://player_shadow.gd" id="4_shadow"]
 [ext_resource type="Script" uid="uid://pkr81j2ropl5" path="res://coast_effects.gd" id="5_coast_effects"]
-[ext_resource type="Script" path="res://player_health_bar.gd" id="6_health_bar"]
-[ext_resource type="Script" path="res://game_over_panel.gd" id="7_game_over"]
-[ext_resource type="Script" path="res://player_experience_bar.gd" id="8_experience_bar"]
-[ext_resource type="Script" path="res://infinite_terrain_renderer.gd" id="9_infinite_terrain"]
+[ext_resource type="Script" uid="uid://62moca2vk8d1" path="res://player_health_bar.gd" id="6_health_bar"]
+[ext_resource type="Script" uid="uid://dgruwy2pn7c5y" path="res://game_over_panel.gd" id="7_game_over"]
+[ext_resource type="Script" uid="uid://cvxihmhb0ylw2" path="res://player_experience_bar.gd" id="8_experience_bar"]
+[ext_resource type="Script" uid="uid://dqvkcsmqtcl2m" path="res://infinite_terrain_renderer.gd" id="9_infinite_terrain"]
+[ext_resource type="Script" uid="uid://cireveo6r2nte" path="res://boss_health_bar.gd" id="10_boss_health"]
+[ext_resource type="Script" uid="uid://b2je3215f5rqq" path="res://chest_reveal_overlay.gd" id="11_chest_reveal"]
+[ext_resource type="Script" uid="uid://cfpi8gd3nfvah" path="res://boss_reward_panel.gd" id="12_boss_reward"]
+[ext_resource type="Script" uid="uid://cuox38iddngnv" path="res://player_loadout_bar.gd" id="13_loadout"]
 
 [node name="IslandMap" type="Node2D" unique_id=1407515294]
 script = ExtResource("1_island")
-map_width = 50
-map_height = 50
-world_seed = 0
+map_width = 80
+map_height = 200
+world_seed = 12345
 dock_length = 3
 bridge_planks_per_tile = 2
 
-[node name="InfiniteTerrainRenderer" type="Node2D" parent="."]
+[node name="InfiniteTerrainRenderer" type="Node2D" parent="." unique_id=276776645]
 z_index = -10
 script = ExtResource("9_infinite_terrain")
 
 [node name="TerrainCollision" type="StaticBody2D" parent="." unique_id=149007699]
 
-[node name="RockCollision" type="StaticBody2D" parent="."]
+[node name="RockCollision" type="StaticBody2D" parent="." unique_id=1112737093]
 collision_layer = 2
 collision_mask = 0
 
 [node name="CoastEffects" type="Node2D" parent="." unique_id=489540484]
-z_index = 2
+z_index = 1
 script = ExtResource("5_coast_effects")
 
 [node name="PlayerShadow" type="Node2D" parent="." unique_id=1035890114]
@@ -42,7 +46,9 @@ player_path = NodePath("../Player")
 [node name="HUD" type="CanvasLayer" parent="." unique_id=24544657]
 layer = 20
 
-[node name="HealthBar" type="Control" parent="HUD"]
+[node name="HealthBar" type="Control" parent="HUD" unique_id=674976516]
+layout_mode = 3
+anchors_preset = 0
 offset_left = 16.0
 offset_top = 16.0
 offset_right = 216.0
@@ -50,7 +56,10 @@ offset_bottom = 40.0
 mouse_filter = 2
 script = ExtResource("6_health_bar")
 player_path = NodePath("../../Player")
-[node name="ExperienceBar" type="Control" parent="HUD"]
+
+[node name="ExperienceBar" type="Control" parent="HUD" unique_id=576947956]
+layout_mode = 3
+anchors_preset = 0
 offset_left = 16.0
 offset_top = 45.0
 offset_right = 216.0
@@ -59,7 +68,30 @@ mouse_filter = 2
 script = ExtResource("8_experience_bar")
 player_path = NodePath("../../Player")
 
+[node name="LoadoutBar" type="Control" parent="HUD" unique_id=506186480]
+layout_mode = 3
+anchors_preset = 0
+offset_left = 16.0
+offset_top = 68.0
+offset_right = 112.0
+offset_bottom = 100.0
+mouse_filter = 2
+script = ExtResource("13_loadout")
+player_path = NodePath("../../Player")
+
+[node name="BossHealthBar" type="Control" parent="HUD" unique_id=197364622]
+layout_mode = 3
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_top = 36.0
+offset_bottom = 58.0
+grow_horizontal = 2
+mouse_filter = 2
+script = ExtResource("10_boss_health")
+
 [node name="Minimap" type="Control" parent="HUD" unique_id=950635016]
+z_index = 10
 layout_mode = 3
 anchors_preset = 1
 anchor_left = 1.0
@@ -74,7 +106,8 @@ script = ExtResource("3_minimap")
 map_path = NodePath("../..")
 player_path = NodePath("../../Player")
 
-[node name="GameOverPanel" type="Control" parent="HUD"]
+[node name="GameOverPanel" type="Control" parent="HUD" unique_id=188303461]
+z_index = 40
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -83,3 +116,24 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("7_game_over")
+
+[node name="ChestRevealOverlay" type="Control" parent="HUD" unique_id=349989952]
+z_index = 20
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("11_chest_reveal")
+
+[node name="BossRewardPanel" type="Control" parent="HUD" unique_id=1880359511]
+z_index = 30
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("12_boss_reward")

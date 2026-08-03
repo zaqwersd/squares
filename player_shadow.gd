@@ -1,4 +1,4 @@
-﻿class_name PlayerShadowRenderer
+class_name PlayerShadowRenderer
 extends Node2D
 
 const PLAYER_SIZE := 48.0

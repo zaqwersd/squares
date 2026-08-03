@@ -9,6 +9,7 @@ const LIFETIME := 0.46
 var _amount := 0
 var _text_color := Color.WHITE
 var _prefix := ""
+var _text_override := ""
 
 
 func configure(amount: int, text_color: Color, prefix := "") -> void:
@@ -18,6 +19,12 @@ func configure(amount: int, text_color: Color, prefix := "") -> void:
 	if is_node_ready():
 		_apply_text()
 
+
+func configure_text(value: String, text_color: Color) -> void:
+	_text_override = value
+	_text_color = text_color
+	if is_node_ready():
+		_apply_text()
 
 func _ready() -> void:
 	_apply_text()
@@ -45,5 +52,5 @@ func _play_animation() -> void:
 
 
 func _apply_text() -> void:
-	label.text = _prefix + str(_amount)
+	label.text = _text_override if not _text_override.is_empty() else _prefix + str(_amount)
 	label.add_theme_color_override("font_color", _text_color)

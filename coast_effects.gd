@@ -12,7 +12,7 @@ const BRIDGE_POST_TOP_COLOR := Color("#9C765E")
 const BRIDGE_SIDE_COLOR := Color("#604A3D")
 const BRIDGE_TOP_COLOR := Color("#806A58")
 
-@export_range(4.0, 20.0, 1.0) var animation_fps := 10.0
+@export_range(4.0, 20.0, 1.0) var animation_fps := 4.0
 @export_range(0.2, 3.0, 0.1) var coast_pulse_speed := 0.9
 @export_range(1, 6, 1) var coast_extra_width := 4
 @export_range(0.2, 2.0, 0.1) var sea_level_speed := 0.65
@@ -44,12 +44,12 @@ func _draw() -> void:
 		return
 	var visible_rect := _visible_world_rect().grow(TILE_SIZE)
 	var min_cell := Vector2i(
-		maxi(0, floori(visible_rect.position.x / TILE_SIZE) - 1),
-		maxi(0, floori(visible_rect.position.y / TILE_SIZE) - 1)
+		floori(visible_rect.position.x / TILE_SIZE) - 1,
+		floori(visible_rect.position.y / TILE_SIZE) - 1
 	)
 	var max_cell := Vector2i(
-		mini(_map.map_width - 1, ceili(visible_rect.end.x / TILE_SIZE) + 1),
-		mini(_map.map_height - 1, ceili(visible_rect.end.y / TILE_SIZE) + 1)
+		ceili(visible_rect.end.x / TILE_SIZE) + 1,
+		ceili(visible_rect.end.y / TILE_SIZE) + 1
 	)
 	var tide_phase := _elapsed * coast_pulse_speed
 	var extra_width := int(round(
@@ -69,6 +69,7 @@ func _draw() -> void:
 					cell, surface_pass, extra_width, sea_offset
 				)
 	_draw_bridge_post_waterlines(extra_width, sea_offset)
+	_draw_bridge_posts(_map.get_bridge_post_rects_behind_deck())
 	_draw_bridge_deck_foreground()
 	_draw_bridge_posts_foreground()
 
@@ -148,7 +149,7 @@ func _draw_moving_north_waterline(
 					Vector2(origin.x, surface_y),
 					Vector2(TILE_SIZE, resting_surface - surface_y)
 				),
-				LAND_COLOR,
+				_map.get_land_top_color(cell),
 				true,
 				-1.0,
 				false
@@ -193,7 +194,7 @@ func _draw_moving_south_waterline(
 				Vector2(origin.x, cliff_top),
 				Vector2(TILE_SIZE, maxf(0.0, surface_y - cliff_top))
 			),
-			CLIFF_COLOR,
+			_map.get_land_side_color(cell),
 			true,
 			-1.0,
 			false
@@ -322,7 +323,11 @@ func _draw_bridge_post_waterlines(extra_width: int, sea_offset: int) -> void:
 		)
 
 func _draw_bridge_posts_foreground() -> void:
-	for post_rect in _map.get_bridge_post_rects():
+	_draw_bridge_posts(_map.get_bridge_post_rects())
+
+
+func _draw_bridge_posts(posts: Array[Rect2]) -> void:
+	for post_rect in posts:
 		draw_rect(post_rect, BRIDGE_SIDE_COLOR, true, -1.0, false)
 		draw_rect(
 			Rect2(post_rect.position, Vector2(post_rect.size.x, 8.0)),
@@ -333,9 +338,16 @@ func _draw_bridge_posts_foreground() -> void:
 		)
 
 func _draw_bridge_deck_foreground() -> void:
-	var bridge_rect := _map.get_dock_bridge_rect()
-	if bridge_rect.size.x <= 0.0 or bridge_rect.size.y <= 0.0:
-		return
+	for bridge_data in _map.get_bridge_render_data():
+		var bridge_rect: Rect2 = bridge_data["rect"]
+		var orientation: int = bridge_data["orientation"]
+		if orientation == IslandMap.BRIDGE_HORIZONTAL:
+			_draw_horizontal_bridge_deck(bridge_rect)
+		else:
+			_draw_vertical_bridge_deck(bridge_rect)
+
+
+func _draw_vertical_bridge_deck(bridge_rect: Rect2) -> void:
 	var total_length := int(bridge_rect.size.y)
 	var tile_count := maxi(1, int(bridge_rect.size.y / TILE_SIZE))
 	var plank_count := tile_count * _map.bridge_planks_per_tile
@@ -345,29 +357,41 @@ func _draw_bridge_deck_foreground() -> void:
 		var slot_length := slot_end - slot_start
 		var gap := mini(_map.bridge_plank_gap, maxi(0, slot_length - 1))
 		var drawable_length := slot_length - gap
-		var side_height := mini(
-			_map.bridge_plank_side_height,
-			maxi(0, drawable_length - 1)
-		)
+		var side_height := mini(_map.bridge_plank_side_height, maxi(0, drawable_length - 1))
 		var top_length := drawable_length - side_height
 		var plank_position := bridge_rect.position + Vector2(0.0, slot_start)
 		if side_height > 0:
+			draw_rect(Rect2(plank_position + Vector2(0.0, top_length), Vector2(bridge_rect.size.x, side_height)), BRIDGE_SIDE_COLOR, true, -1.0, false)
+		if top_length > 0:
+			draw_rect(Rect2(plank_position, Vector2(bridge_rect.size.x, top_length)), BRIDGE_TOP_COLOR, true, -1.0, false)
+
+
+func _draw_horizontal_bridge_deck(bridge_rect: Rect2) -> void:
+	var total_length := int(bridge_rect.size.x)
+	var tile_count := maxi(1, int(bridge_rect.size.x / TILE_SIZE))
+	var plank_count := tile_count * _map.bridge_planks_per_tile
+	for plank_index in plank_count:
+		var slot_start := int(plank_index * total_length / plank_count)
+		var slot_end := int((plank_index + 1) * total_length / plank_count)
+		var slot_length := slot_end - slot_start
+		var gap := mini(_map.bridge_plank_gap, maxi(0, slot_length - 1))
+		var drawable_length := slot_length - gap
+		var side_height := mini(_map.bridge_plank_side_height, maxi(0, drawable_length - 1))
+		var top_width := drawable_length - side_height
+		var plank_position := bridge_rect.position + Vector2(slot_start, 0.0)
+		if side_height > 0:
 			draw_rect(
 				Rect2(
-					plank_position + Vector2(0.0, top_length),
-					Vector2(bridge_rect.size.x, side_height)
+					plank_position + Vector2(0.0, bridge_rect.size.y - side_height),
+					Vector2(top_width, side_height)
 				),
 				BRIDGE_SIDE_COLOR, true, -1.0, false
 			)
-		if top_length > 0:
+		if top_width > 0:
 			draw_rect(
-				Rect2(
-					plank_position,
-					Vector2(bridge_rect.size.x, top_length)
-				),
+				Rect2(plank_position, Vector2(top_width, bridge_rect.size.y - side_height)),
 				BRIDGE_TOP_COLOR, true, -1.0, false
 			)
-
 
 func _draw_foam_blocks(
 	cell: Vector2i,
@@ -418,14 +442,6 @@ func _foam_position(
 	)
 
 func _rect_is_open_water(rect: Rect2) -> bool:
-	var map_size := Vector2(_map.map_width, _map.map_height) * TILE_SIZE
-	if (
-		rect.position.x < 0.0
-		or rect.position.y < 0.0
-		or rect.end.x > map_size.x
-		or rect.end.y > map_size.y
-	):
-		return false
 	var min_cell := Vector2i(
 		floori(rect.position.x / TILE_SIZE),
 		floori(rect.position.y / TILE_SIZE)
@@ -445,10 +461,10 @@ func _rect_is_open_water(rect: Rect2) -> bool:
 
 
 func _rect_overlaps_visual_cliff(rect: Rect2) -> bool:
-	var min_x := maxi(0, floori(rect.position.x / TILE_SIZE) - 1)
-	var max_x := mini(_map.map_width - 1, floori((rect.end.x - 1.0) / TILE_SIZE) + 1)
-	var min_y := maxi(0, floori(rect.position.y / TILE_SIZE) - 1)
-	var max_y := mini(_map.map_height - 1, floori((rect.end.y - 1.0) / TILE_SIZE))
+	var min_x := floori(rect.position.x / TILE_SIZE) - 1
+	var max_x := floori((rect.end.x - 1.0) / TILE_SIZE) + 1
+	var min_y := floori(rect.position.y / TILE_SIZE) - 1
+	var max_y := floori((rect.end.y - 1.0) / TILE_SIZE)
 	for y in range(min_y, max_y + 1):
 		for x in range(min_x, max_x + 1):
 			var land_cell := Vector2i(x, y)

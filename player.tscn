@@ -7,7 +7,11 @@
 [ext_resource type="Script" path="res://rock_weapon.gd" id="4_rock_weapon"]
 [ext_resource type="Script" path="res://sword_weapon.gd" id="5_sword"]
 [ext_resource type="Script" path="res://sword_slash_effect.gd" id="6_sword_slash"]
+[ext_resource type="Script" path="res://greatsword_weapon.gd" id="9_greatsword"]
+[ext_resource type="Script" path="res://greatsword_slash_effect.gd" id="10_greatsword_slash"]
 [ext_resource type="Script" path="res://bow_charge_effect.gd" id="7_bow_charge"]
+[ext_resource type="Script" path="res://spear_weapon.gd" id="11_spear"]
+[ext_resource type="Script" path="res://attack_range_preview.gd" id="12_range_preview"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_player"]
 size = Vector2(48, 48)
@@ -37,7 +41,7 @@ color_ramp = SubResource("GradientTexture1D_landing_fade")
 [node name="Player" type="CharacterBody2D" unique_id=1022082260]
 z_index = 10
 collision_layer = 4
-collision_mask = 3
+collision_mask = 11
 script = ExtResource("1_player")
 move_speed = 250.0
 
@@ -64,6 +68,11 @@ polygon = PackedVector2Array(-30, -18, 30, -18, 30, 30, -30, 30)
 
 [node name="SpawnTransform" type="Node2D" parent="Visual" unique_id=225153867]
 
+[node name="AttackRangePreview" type="Node2D" parent="."]
+z_index = -1
+visible = false
+script = ExtResource("12_range_preview")
+
 [node name="RockWeapon" type="Node2D" parent="."]
 z_index = 4
 visible = false
@@ -78,6 +87,11 @@ border_color = Color(0.101961, 0.392157, 0.709804, 1)
 z_index = 4
 visible = false
 script = ExtResource("8_triple_bow")
+border_color = Color(0.101961, 0.392157, 0.709804, 1)
+[node name="SpearWeapon" type="Node2D" parent="."]
+z_index = 4
+visible = false
+script = ExtResource("11_spear")
 border_color = Color(0.101961, 0.392157, 0.709804, 1)
 [node name="BowFireFlash" type="Node2D" parent="."]
 z_index = 5
@@ -99,6 +113,17 @@ outline_color = Color(0.101961, 0.392157, 0.709804, 1)
 z_index = 5
 visible = false
 script = ExtResource("6_sword_slash")
+faction_color = Color(0.101961, 0.392157, 0.709804, 1)
+[node name="GreatswordWeapon" type="Node2D" parent="."]
+z_index = 4
+visible = false
+script = ExtResource("9_greatsword")
+outline_color = Color(0.101961, 0.392157, 0.709804, 1)
+
+[node name="GreatswordSlashEffect" type="Node2D" parent="."]
+z_index = 5
+visible = false
+script = ExtResource("10_greatsword_slash")
 faction_color = Color(0.101961, 0.392157, 0.709804, 1)
 
 [node name="AbilityArrowPreview" type="Node2D" parent="."]
